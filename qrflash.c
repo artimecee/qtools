@@ -289,7 +289,8 @@ printf("\n * For raw reading mode and checking for bad blocks:\n\
     -ra - (by default and only for partition mode) auto-detection of format by partition attribute\n\
     -rs - standard format (512-byte blocks)\n\
     -rl - Linux format (516-byte blocks, except the last one on the page)\n\
-    -ry - yaffs2 format (page+tag)\n\");
+    -ry - yaffs2 format (page+tag)\n\
+	");
     return;
     
    case 'k':
