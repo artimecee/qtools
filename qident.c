@@ -42,7 +42,8 @@ while ((opt = getopt(argc, argv, "p:")) != -1) {
      printf("\nThe utility is designed to identify the chipset of devices that support the DMSS protocol.\n\
  The utility works with the diagnostic port of a device in normal (operating) mode.\n\n\
 The following keys are valid:\n\n\
--p <tty> - specifies the name of the serial port device to communicate with the bootloader\n\");
+-p <tty> - specifies the name of the serial port device to communicate with the bootloader\n\
+");
     return;
      
    case 'p':
