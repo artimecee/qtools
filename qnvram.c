@@ -272,8 +272,7 @@ Keys that determine the operation being performed:\n\
 -ri[z] [item] - read all or only the specified nvram entries into separate files (z-skip empty entries)\n\
 -rd[z] - dump the specified nvram partition (z-cut off trailing zeros)\n\n\
 -wi item file - write the item section from the file file\n\
--wa - write all partitions in the nv/\n\ directory
--j imei - write the specified IMEI to nv226\n\
+-wa - write all partitions in the nv/\n\ directory -j imei - write the specified IMEI to nv226\n\
 \n\
 Modifier keys:\n\
 -p <tty> - specifies the device name of the modem diagnostic port\n\
