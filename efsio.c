@@ -3,39 +3,39 @@
 #include "efsio.h"
 
 //========================================================
-//  Процедуры работы  файлами EFS 
-//  через диагностический интерфейс
+//Procedures for working with EFS files
+//via diagnostic interface
 //========================================================
 
-// Хранилище последнего кода ошибки
+//Last error code storage
 static int efs_errno;
 
-// Признак работы с альтернативной EFS
-unsigned int efs_altflag=0;   // флаг альтернативной EFS
+//Sign of working with alternative EFS
+unsigned int efs_altflag=0;   //alternative EFS flag
 
 //****************************************************
-//* Получение errno
+//* Getting errno
 //****************************************************
 int efs_get_errno() {
   return efs_errno;
 }  
 
 //****************************************************
-//* Установка альтернативного флга
+//* Setting an alternative flag
 //****************************************************
 void set_altflag(int val) {
  efs_altflag=val;
 } 
 
 //****************************************************
-//* Отправка EFS-команды
+//* Sending EFS command
 //
-// cmd - код команды EFS_DIAG_*
-// reqbuf - структура параметров команды,
-// reqlen - длина структуры параметров
-// respbuf - структура ответа
+//cmd - command code EFS_DIAG_*
+//reqbuf - structure of command parameters,
+//reqlen - parameter structure length
+//respbuf - response structure
 //
-// возвращает длину ответа, или -1 при ошибке
+//returns response length, or -1 on error
 //****************************************************
 int send_efs_cmd(int cmd,void* reqbuf,int reqlen, void* respbuf) {
 
@@ -58,19 +58,19 @@ if (iobuf[0] != 0x4b) {
 //printf("\n cmd %02x:  resplen=%i\n",cmd,iolen-7);
 //dump(iobuf+4,iolen-7,0);
 memcpy(respbuf,iobuf+4,iolen-7);
-return iolen; // ошибок не было
+return iolen; //there were no errors
 }
  
   
 //****************************************************
-//*   Получение блока описания файла по имени
+//* Getting a file description block by name
 //* 
-//*   Возвращаемое значение - тип файла:
+//* Return value - file type:
 //*
-//* -1 - ошибка обработки команды 
-//*  0 - файл не найден
-//*  1 - файл не является каталогом
-//*  2 - каталог
+//* -1 - command processing error
+//* 0 - file not found
+//* 1 - file is not a directory
+//* 2 - directory
 //*
 //****************************************************
 int efs_stat(char* filename, struct efs_filestat* fi) {
@@ -81,19 +81,19 @@ int iolen;
 memset(cmdbuf,0,200);
 strcpy(cmdbuf,filename);
 iolen=send_efs_cmd(EFS2_DIAG_STAT,cmdbuf,strlen(filename)+1,fi);
-if (iolen == -1) return -1; // ошибка приема ответа
+if (iolen == -1) return -1; //error receiving response
 efs_errno=fi->diag_errno;
-if (efs_errno != 0) return 0; // файл не найден или другая какая ошибка
+if (efs_errno != 0) return 0; //file not found or some other error
 if (S_ISDIR(fi->mode)) return 2;
 return 1;
 }
 
 //****************************************************
-//* Открытие каталога для чтения
+//* Opening a directory for reading
 //*
-//* возврат:
-//*  указатель на открытый каталог
-//*  0 - ошибка
+//* return:
+//* pointer to open directory
+//* 0 - error
 //*  
 //****************************************************
 int efs_opendir(char* path) {
@@ -116,7 +116,7 @@ return rsp.dirp;
 
 
 //****************************************************
-//* Закрытие каталога
+//* Closing the directory
 //****************************************************
 int efs_closedir(int dirp) {
   
@@ -131,11 +131,11 @@ return rsp;
 }
 
 //****************************************************
-//* Чтение очередной записи каталога
+//* Reading the next directory entry
 //****************************************************
 int efs_readdir(int dirp, int seq,struct efs_dirent* rsp) {  
 
-// структура запроса  
+//request structure
 struct {
   uint32 dirp;             /* Directory pointer.                           */
   int32 seqno;             /* Sequence number of directory entry to read   */
@@ -153,7 +153,7 @@ return efs_errno;
 }
 
 //**************************************************   
-//* Открытие EFS-файла 
+//* Opening an EFS file
 //*
 //* The following oflag values are valid:
 //* O_RDONLY (open for reading mode)
@@ -193,7 +193,7 @@ return rsp.fd;
 }
 
 //**************************************************   
-//* Чтение EFS-файла 
+//* Read EFS file
 //*
 //**************************************************   
 int efs_read(int fd, char* buf, int size, int offset) {
@@ -225,7 +225,7 @@ return rsp.bytes_read;
 }
 
 //**************************************************   
-//* Закрытие файла
+//* Closing a file
 //**************************************************   
 int efs_close(int fd) {
 
@@ -241,7 +241,7 @@ return lerrno;
 
 
 //**************************************************   
-//* Запись файла
+//* Write file
 //**************************************************   
 int efs_write(int fd,char* buf, int size, int offset) {
 
@@ -249,8 +249,8 @@ struct {
   int32 fd;                /* File descriptor                              */
   uint32 offset;           /* Offset in bytes from the origin              */
   char data[8192];        /* The data to be written                       */
-} req;					   /* Значение размера data[] - "от балды".        */
-						   /* Видимо, здесь должен быть макс. размер файла EFS */
+} req;					   /*The value of the data[] size is "from the bullshit".*/
+						   /*Apparently there should be a max. EFS file size*/
 struct  {
   int32 fd;                /* File descriptor                              */
   uint32 offset;           /* Requested offset in bytes from the origin    */
@@ -270,7 +270,7 @@ return rsp.bytes_written;
 
 
 //******************************************************
-//*  Удаление каталога
+//* Removing a directory
 //******************************************************
 int efs_rmdir(char* dirname) {
 
@@ -284,7 +284,7 @@ return lerrno;
 }
 
 //******************************************************
-//*  Удаление файла по имени
+//* Delete file by name
 //******************************************************
 int efs_unlink(char* name) {
 
@@ -298,7 +298,7 @@ return lerrno;
 } 
 
 //******************************************************
-//*  Создание каталога
+//* Directory creation
 //******************************************************
 int efs_mkdir(char* name, int mode) {
 
@@ -319,7 +319,7 @@ return lerrno;
 }
 
 //******************************************************
-//* Подготовка к снятию полного дампа EFS
+//* Preparing to take a full EFS dump
 //******************************************************
 int efs_prep_factimage() {
   
@@ -333,7 +333,7 @@ return lerrno;
 }
 
 //******************************************************
-//* Запуск чтения полного дампа EFS
+//* Start reading full EFS dump
 //******************************************************
 int efs_factimage_start() {
 
@@ -347,7 +347,7 @@ return lerrno;
 }
 
 //******************************************************
-//* Чтение очередного сегмента  EFS
+//* Reading the next EFS segment
 //******************************************************
 int efs_factimage_read(int state, int sent, int map, int data, struct efs_factimage_rsp* rsp) {  
 
@@ -371,7 +371,7 @@ return efs_errno;
 }
 
 //******************************************************
-//* Завершение дампа EFS
+//*Completing EFS dump
 //******************************************************
 int efs_factimage_end() {
 

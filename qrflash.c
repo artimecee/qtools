@@ -1,11 +1,11 @@
 #include "include.h"
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-//* Чтение флеша модема в файл 
+//* Read modem flash to file
 //
 //
 
-// флаги способов обработки бедблоков
+//bedblock processing flags
 enum {
   BAD_UNDEF,
   BAD_FILL,
@@ -15,7 +15,7 @@ enum {
 };
 
 
-// Формты читаемых данных
+//Readable data formats
 enum {
   RF_AUTO,
   RF_STANDART,
@@ -26,7 +26,7 @@ enum {
 int bad_processing_flag=BAD_UNDEF;
 unsigned char *blockbuf;
 
-// Структура для сохранения списка ошибок чтения
+//Structure for storing a list of read errors
 
 struct {
   int page;
@@ -38,10 +38,10 @@ int errcount;
 int qflag=0;
 
 //********************************************************************************
-//* Загрузка блока в блочный буфер
+//* Loading a block into a block buffer
 //*
-//*  возвращает 0, если блок дефектный, или 1, если он нормально прочитался
-//* cwsize - размер читаемого сектора (включая ООВ, если надо)
+//* returns 0 if the block is defective, or 1 if it was read normally
+//* cwsize - readable sector size (including OOB, if necessary)
 //********************************************************************************
 unsigned int load_block(int blk, int cwsize) {
 
@@ -54,22 +54,22 @@ errcount=0;
 if (bad_processing_flag == BAD_DISABLE) hardware_bad_off();
 else if (bad_processing_flag != BAD_IGNORE) {
    if (check_block(blk)) {
-    // обнаружен бедблок
-    memset(blockbuf,0xbb,cwsize*spp*ppb); // заполняем блочный буфер заполнителем
-    return 0; // возвращаем признак бедблока
+    //bedblock detected
+    memset(blockbuf,0xbb,cwsize*spp*ppb); //fill the block buffer with placeholder
+    return 0; //return the badblock sign
   }
 } 
-// хороший блок, или нам насрать на бедблоки - читаем блок 
+//good block, or we don’t give a damn about bedblocks - read the block
 
-// устанавливаем udsize на размер читаемого участка
+//set udsize to the size of the readable area
 cfg0=mempeek(nand_cfg0);
 //oldudsize=get_udsize();
 //set_udsize(cwsize);
 //set_sparesize(0);
 
 nand_reset();
-if (cwsize>(sectorsize+4)) mempoke(nand_cmd,0x34); // чтение data+ecc+spare без коррекции
-else mempoke(nand_cmd,0x33);    // чтение data с коррекцией
+if (cwsize>(sectorsize+4)) mempoke(nand_cmd,0x34); //reading data+ecc+spare without correction
+else mempoke(nand_cmd,0x33);    //reading data with correction
 
 bch_reset();
 for(pg=0;pg<ppb;pg++) {
@@ -93,11 +93,11 @@ for(pg=0;pg<ppb;pg++) {
 if (bad_processing_flag == BAD_DISABLE) hardware_bad_on();
 //set_udsize(oldudsize);
 mempoke(nand_cfg0,cfg0);
-return 1; // заебись - блок прочитан
+return 1; //fuck - block read
 }
   
 //***************************************
-//* Чтение блока данных в выходной файл
+//* Read a block of data into an output file
 //***************************************
 unsigned int read_block(int block,int cwsize,FILE* out) {
 
@@ -105,46 +105,46 @@ unsigned int okflag=0;
 
 okflag=load_block(block,cwsize);
 if (okflag || (bad_processing_flag != BAD_SKIP)) {
-  // блок прочитался, или не прочитался, но мы бедблоки пропускаем
-   fwrite(blockbuf,1,cwsize*spp*ppb,out); // записываем его в файл
+  //the block was read or not read, but we skip bedblocks
+   fwrite(blockbuf,1,cwsize*spp*ppb,out); //write it to a file
 }
 return !okflag;
 } 
 
 //********************************************************************************
-//* Чтение блока данных для разделов с защищенным spare (516-байтовые секторы)
-//*   yaffsmode=0 - чтение данных,  1 - чтение данных и тега yaffs2
+//* Read data block for partitions with protected spare (516-byte sectors)
+//* yaffsmode=0 - read data, 1 - read data and yaffs2 tag
 //********************************************************************************
 unsigned int read_block_ext(int block, FILE* out, int yaffsmode) {
 unsigned int page,sec;
 unsigned int okflag;
 unsigned char* pgoffset;
 unsigned char* udoffset;
-unsigned char extbuf[2048]; // буфер для сборки псевдо-OOB
+unsigned char extbuf[2048]; //pseudo-OOB build buffer
 
 okflag=load_block(block,sectorsize+4);
-if (!okflag && (bad_processing_flag == BAD_SKIP)) return 1; // обнаружен бедблок
+if (!okflag && (bad_processing_flag == BAD_SKIP)) return 1; //bedblock detected
 
-// цикл по страницам
+//cycle through pages
 for(page=0;page<ppb;page++)  {
-  pgoffset=blockbuf+page*spp*(sectorsize+4); // смещение до текущей страницы
-  // по секторам  
+  pgoffset=blockbuf+page*spp*(sectorsize+4); //offset to current page
+  //by sector
   for(sec=0;sec<spp;sec++) {
-   udoffset=pgoffset+sec*(sectorsize+4); // смещение до текущего сектора 
+   udoffset=pgoffset+sec*(sectorsize+4); //offset to current sector
 //   printf("\n page %i  sector %i\n",page,sec);
    if (sec != (spp-1)) {
-     // Для непоследних секторов
-     fwrite(udoffset,1,sectorsize+4,out);    // Тело сектора + 4 байта OBB
+     //For non-last sectors
+     fwrite(udoffset,1,sectorsize+4,out);    //Sector body + 4 bytes OBB
 //     dump(udoffset,sectorsize+4,udoffset-blockbuf);
    }  
    else { 
-     // для последнего сектора
-     fwrite(udoffset,1,sectorsize-4*(spp-1),out);   // Тело сектора - хвост oob
+     //for the last sector
+     fwrite(udoffset,1,sectorsize-4*(spp-1),out);   //Sector body - tail oob
 //     dump(udoffset,sectorsize-4*(spp-1),udoffset-blockbuf);
    }  
   }
 
-// Чтение образов тега yafs2 
+//Reading yafs2 tag images
   if (yaffsmode) {
     memset(extbuf,0xff,oobsize);
     memcpy(extbuf,pgoffset+(sectorsize+4)*(spp-1)+(sectorsize-4*(spp-1)),16);
@@ -159,50 +159,50 @@ return !okflag;
 
 
 //*************************************************************
-//* Чтение блока данных для нефайловых линуксовых разделов
+//* Read data block for non-file Linux partitions
 //*************************************************************
 unsigned int read_block_resequence(int block, FILE* out) {
  return read_block_ext(block,out,0);
 } 
 
 //*************************************************************
-//* Чтение блока данных для файловых yaffs2 разделов
+//* Reading data block for yaffs2 file partitions
 //*************************************************************
 unsigned int read_block_yaffs(int block, FILE* out) {
  return read_block_ext(block,out,1);
 } 
 
 //****************************************
-//* Вывод на экран списка ошибок чтения
+//* Displays a list of reading errors
 //****************************************
 void show_errlist() {
   
 int i;  
   
-if (qflag || (errcount == 0)) return; // ошибок не было  
+if (qflag || (errcount == 0)) return; //there were no errors
 for (i=0;i<errcount;i++) {
-  if (errlist[i].errcode == -1) printf("\n!   Страница %d  сектор %d: некорректируемая ошибка чтения",
+  if (errlist[i].errcode == -1) printf("\n!   Page %d sector %d: uncorrectable read error",
                                    errlist[i].page,errlist[i].sector);
-  else                          printf("\n!   Страница %d  сектор %d: скорректировано бит: %d",
+  else                          printf("\n!   Page %d sector %d: bit adjusted: %d",
                                    errlist[i].page,errlist[i].sector,errlist[i].errcode);
 }
 printf("\n");
 }
 
 //*****************************
-//* чтение сырого флеша
+//* reading raw flash
 //*****************************
 void read_raw(int start,int len,int cwsize,FILE* out, unsigned int rflag) {
   
 int block;  
 unsigned int badflag;
 
-printf("\n Чтение блоков %08x - %08x",start,start+len-1);
-printf("\n Формат данных: %u+%i\n",sectorsize,cwsize-sectorsize);
-// главыный цикл
-// по блокам
+printf("\n Read blocks %08x - %08x",start,start+len-1);
+printf("\n Data format: %u+%i\n",sectorsize,cwsize-sectorsize);
+//main cycle
+//by block
 for (block=start;block<(start+len);block++) {
-  printf("\r Блок: %08x",block); fflush(stdout);
+  printf("\r Block: %08x",block); fflush(stdout);
   switch (rflag) {
     case RF_AUTO:
     case RF_STANDART:
@@ -231,21 +231,21 @@ unsigned char filename[300]={0};
 unsigned int i,block,filepos,lastpos;
 unsigned char c;
 unsigned int start=0,len=0,opt;
-unsigned int partlist[60]; // список разделов, разрешенных для чтения
-unsigned int cwsize;  // размер порции данных, читаемых из секторного буфера за один раз
+unsigned int partlist[60]; //list of partitions allowed for reading
+unsigned int cwsize;  //size of the data portion read from the sector buffer at a time
 FILE* out;
-int partflag=0;  // 0 - сырой флеш, 1 - работа с таблицец разделов
-int eccflag=0;  // 1 - отключить ECC,  0 - включить
-int partnumber=-1; // флаг выбра раздела для чтения, -1 - все разделы, 1 - по списку
-int rflag=RF_AUTO;     // формат разделов: 0 - авто, 1 - стандартный, 2 - линуксокитайский, 3- yaffs2
-int listmode=0;    // 1- вывод карты разделов
-int truncflag=0;  //  1 - отрезать все FF от конца раздела
+int partflag=0;  //0 - raw flash, 1 - working with partition table
+int eccflag=0;  //1 - disable ECC, 0 - enable
+int partnumber=-1; //flag for selecting a partition for reading, -1 - all partitions, 1 - by list
+int rflag=RF_AUTO;     //partition format: 0 - auto, 1 - standard, 2 - Linux-Chinese, 3 - yaffs2
+int listmode=0;    //1- partition map output
+int truncflag=0;  //1 - cut off all FF from the end of the section
 int xflag=0;      // 
 unsigned int badflag;
 
 int forced_oobsize=-1;
 
-// Источник таблицы разделов. По умолчанию - раздел MIBIB на флешке
+//Partition table source. By default - MIBIB partition on the flash drive
 char ptable_file[200]="@";
 
 #ifndef WIN32
@@ -254,43 +254,42 @@ char devname[50]="/dev/ttyUSB0";
 char devname[50]="";
 #endif
 
-memset(partlist,0,sizeof(partlist)); // очищаем список разрешенных к чтению разделов
+memset(partlist,0,sizeof(partlist)); //clearing the list of partitions allowed for reading
 
 while ((opt = getopt(argc, argv, "hp:b:l:o:xs:ef:mtk:r:z:u:q")) != -1) {
   switch (opt) {
    case 'h': 
      
-printf("\n Утилита предназначена для чтения образа флеш-памяти через модифицированный загрузчик\n\
- Допустимы следующие ключи:\n\n\
--p <tty> - последовательный порт для общения с загрузчиком\n\
--e - отключить коррекцию ECC при чтении\n\
--x - читать полный сектор - данные+oob (без ключа - только данные)\n\n\
--k # - код чипсета (-kl - получить список кодов)\n\
--z # - размер OOB на страницу, в байтах (перекрывает автоопределенный размер)\n\
--q   - запретить вывод списка ошибок чтения\n\
--u <x> - определяет режим обработки дефектных блоков:\n\
-   -uf - заполнить образ дефектного блока в выходном файле байтом 0xbb\n\
-   -us - пропустить дефектные блоки при чтении\n\
-   -ui - игнорировать маркер дефектного блока (читать как читается)\n\
-   -ux - отключить аппаратный контроль дефекных блоков\n");
-printf("\n * Для режима неформатированного чтения и проверки дефектных блоков:\n\
--b <blk> - начальный номер читаемого блока (по умолчанию 0)\n\
--l <num> - число читаемых блоков, 0 - до конца флешки\n\
--o <file> - имя выходного файла (по умолчанию qflash.bin)(только для режима чтения)\n\n\
- * Для режима чтения разделов:\n\n\
--s <file> - взять карту разделов из файла\n\
--s @ - взять карту разделов из флеша (по умолчанию для -f и -m)\n\
--s - - взять карту разделов из файла ptable/current-r.bin\n\
--m   - вывести полную карту разделов и завершить работу\n\
--f n - читать только раздел c номером n (может быть указан несколько раз для формирования списка разделов)\n\
--f * - читать все разделы\n\
--t - отрезать все FF за последним значимым байтом раздела\n\
--r <x> - формат данных:\n\
-    -ra - (по умолчанию и только для режима разделов) автоопределение формата по атрибуту раздела\n\
-    -rs - стандартный формат (512-байтные блоки)\n\
-    -rl - линуксовый формат (516-байтные блоки, кроме последнего на странице)\n\
-    -ry - формат yaffs2 (страница+тег)\n\
-");
+printf("\nThe utility is designed to read a flash memory image through a modified bootloader\n\
+ The following keys are valid:\n\n\
+-p <tty> - serial port for communicating with the bootloader\n\
+-e - disable ECC correction when reading\n\
+-x - read full sector - data+oob (without key - only data)\n\n\
+-k # - chipset code (-kl - get a list of codes)\n\
+-z # - OOB size per page, in bytes (overrides the autodetected size)\n\
+-q - disable displaying a list of reading errors\n\
+-u <x> - determines the mode of processing defective blocks:\n\
+   -uf - fill the image of the defective block in the output file with byte 0xbb\n\
+   -us - skip bad blocks when reading\n\
+   -ui - ignore defective block marker (read as read)\n\
+   -ux - disable hardware control of bad blocks\n");
+printf("\n * For raw reading mode and checking for bad blocks:\n\
+-b <blk> - starting number of the block to be read (default 0)\n\
+-l <num> - number of readable blocks, 0 - until the end of the flash drive\n\
+-o <file> - output file name (default qflash.bin) (read only)\n\n\
+ * For partition reading mode:\n\n\
+-s <file> - take partition map from file\n\
+-s @ - take partition map from flash (default for -f and -m)\n\
+-s - - take partition map from file ptable/current-r.bin\n\
+-m - display the full partition map and exit\n\
+-f n - read only section number n (can be specified several times to form a list of sections)\n\
+-f * - read all sections\n\
+-t - cut off all FFs after the last significant byte of the section\n\
+-r <x> - data format:\n\
+    -ra - (by default and only for partition mode) auto-detection of format by partition attribute\n\
+    -rs - standard format (512-byte blocks)\n\
+    -rl - Linux format (516-byte blocks, except the last one on the page)\n\
+    -ry - yaffs2 format (page+tag)\n\");
     return;
     
    case 'k':
@@ -323,7 +322,7 @@ printf("\n * Для режима неформатированного чтени
 
    case 'u':
      if (bad_processing_flag != BAD_UNDEF) {
-       printf("\n Дублированный ключ u - ошибка\n");
+       printf("\nDuplicate key u - error\n");
        return;
      }  
      switch(*optarg) {
@@ -340,7 +339,7 @@ printf("\n * Для режима неформатированного чтени
 	 bad_processing_flag=BAD_DISABLE;
 	 break;
        default:
-	 printf("\n Недопустимое значение ключа u\n");
+	 printf("\nInvalid key value u\n");
 	 return;
      } 
      break;
@@ -349,19 +348,19 @@ printf("\n * Для режима неформатированного чтени
    case 'r':
      switch(*optarg) {
        case 'a':
-	 rflag=RF_AUTO;   // авто
+	 rflag=RF_AUTO;   //auto
 	 break;     
        case 's':
-	 rflag=RF_STANDART;   // стандартный
+	 rflag=RF_STANDART;   //standard
 	 break;
        case 'l':
-	 rflag=RF_LINUX;   // линуксовый
+	 rflag=RF_LINUX;   //Linux
 	 break;
        case 'y':
          rflag=RF_YAFFS;
          break;	 
        default:
-	 printf("\n Недопустимое значение ключа r\n");
+	 printf("\nInvalid key value r\n");
 	 return;
      } 
      break;
@@ -376,18 +375,18 @@ printf("\n * Для режима неформатированного чтени
      break;
      
    case 'm':
-     partflag=1;  // форсируем режим разделов
+     partflag=1;  //force partition mode
      listmode=1;
      break;
      
    case 'f':
-     partflag=1; // форсируем режим разделов
+     partflag=1; //force partition mode
      if (optarg[0] == '*') {
-       // все разделы
+       //all sections
        partnumber=-1;
        break;
      }
-     // построение списка разделов  
+     //building a list of sections
      partnumber=1;
      sscanf(optarg,"%u",&i);
      partlist[i]=1;
@@ -407,78 +406,78 @@ printf("\n * Для режима неформатированного чтени
   }
 }  
 
-// Проверяем на запуск без ключей
+//Checking for keyless start
 if ((start == 0) && (len == 0) && !xflag && !partflag) {
-  printf("\n Не указан ни один ключ режима работы\n");
+  printf("\nNo operating mode key is specified\n");
   return;
 }  
 
-// Определяем значение ключа -u по умолчанию
+//Define the default value of the -u key
 if (bad_processing_flag==BAD_UNDEF) {
-  if (partflag == 0) bad_processing_flag=BAD_FILL; // для чтения диапазона блоков
-  else bad_processing_flag=BAD_SKIP;               // для чтения разделов
+  if (partflag == 0) bad_processing_flag=BAD_FILL; //to read a range of blocks
+  else bad_processing_flag=BAD_SKIP;               //to read sections
 }  
 
 if ((truncflag == 1)&&(xflag == 1)) {
-  printf("\nКлючи -t и -x несовместимы\n");
+  printf("\nThe -t and -x switches are incompatible\n");
   return;
 }  
 
 
-// Настройка параметров порта и флешки
-// В режиме вывода карты разделов из файла вся эта настройка пропускается
+//Configuring port and flash drive parameters
+//In the mode of outputting a partition map from a file, this entire setting is skipped
 //----------------------------------------------------------------------------
 if (! (listmode && ptable_file[0] != '@')) {
 
 #ifdef WIN32
  if (*devname == '\0') {
-   printf("\n - Последовательный порт не задан\n"); 
+   printf("\n - Serial port not specified\n"); 
    return; 
  }
 #endif
 
  if (!open_port(devname))  {
 #ifndef WIN32
-   printf("\n - Последовательный порт %s не открывается\n", devname); 
+   printf("\n - Serial port %s does not open\n", devname); 
 #else
-   printf("\n - Последовательный порт COM%s не открывается\n", devname); 
+   printf("\n - Serial port COM%s does not open\n", devname); 
 #endif
    return; 
  }
-// загружаем параметры флешки
+//load the flash drive parameters
 hello(0);
-// разпределяем память под блочный буфер
+//allocate memory for a block buffer
 blockbuf=(unsigned char*)malloc(300000);
 
 if (forced_oobsize != -1) {
-  printf("\n! Используется размер OOB %d вместо %d\n",forced_oobsize,oobsize);
+  printf("\n! Using OOB size %d instead of %d\n",forced_oobsize,oobsize);
   oobsize=forced_oobsize;
 }  
 
 cwsize=sectorsize;
-if (xflag) cwsize+=oobsize/spp; // наращиваем размер codeword на размер порции OOB на каждый сектор
+if (xflag) cwsize+=oobsize/spp; //increase the size of the codeword by the size of the OOB portion for each sector
 mempoke(nand_ecc_cfg,mempeek(nand_ecc_cfg)&0xfffffffe|eccflag); // ECC on/off
 mempoke(nand_cfg1,mempeek(nand_cfg1)&0xfffffffe|eccflag); // ECC on/off
 
-mempoke(nand_cmd,1); // Сброс всех операций контроллера
+mempoke(nand_cmd,1); //Reset all controller operations
 mempoke(nand_exec,0x1);
 nandwait();
   
-// устанавливаем код команды
-mempoke(nand_cmd,0x34); // чтение data+ecc+spare
+//set the command code
+mempoke(nand_cmd,0x34); //reading data+ecc+spare
 
-// чистим секторный буфер
+//clearing the sector buffer
 for(i=0;i<cwsize;i+=4) mempoke(sector_buf+i,0xffffffff);
 }
 
 
 //###################################################
-// Режим чтения сырого флеша
+//Raw flash reading mode
 //###################################################
 
 if (partflag == 0) {
 
-if (len == 0) len=maxblock-start; //  до конца флешки
+if (len == 0) len=maxblock-start; //to the end of the flash drive
   if (filename[0] == 0) {
     switch(rflag) {
       case RF_AUTO:
@@ -495,7 +494,7 @@ if (len == 0) len=maxblock-start; //  до конца флешки
   } 
   out=fopen(filename,"wb");
   if (out == 0) {
-    printf("\n Ошибка открытия выходного файла %s",filename);
+    printf("\nError opening output file %s",filename);
     return;
   }  
   read_raw(start,len,cwsize,out,rflag);
@@ -505,116 +504,116 @@ if (len == 0) len=maxblock-start; //  до конца флешки
 
 
 //###################################################
-// Режим чтения по таблице разделов
+//Partition table read mode
 //###################################################
 
-// загружаем таблицу разделов
+//load the partition table
 if (!load_ptable(ptable_file)) { 
-    printf("\n Таблица разделов не найдена. Завершаем работу.\n");
+    printf("\nPartition table not found. Let's finish the job.\n");
     return;
 }
 
-// проверяем, загрузилась ли таблица
+//check if the table has loaded
 if (!validpart) {
-   printf("\nТаблица разделов не найдена или повреждена\n");
+   printf("\nPartition table not found or damaged\n");
    return;
 }
 
-// Режим просмотра таблицы разделов
+//Partition table view mode
 if (listmode) {
   list_ptable();
   return;
 }  
 
 if ((partnumber != -1) && (partnumber>=fptable.numparts)) {
-  printf("\nНедопустимый номер раздела: %i, всего разделов %u\n",partnumber,fptable.numparts);
+  printf("\nInvalid partition number: %i, total partitions %u\n",partnumber,fptable.numparts);
   return;
 }  
 
 print_ptable_head();
 
-// Главный цикл - по разделам
+//Main cycle - section by section
 for(i=0;i<fptable.numparts;i++) {
 
-  // Читаем раздел  
+  //Reading the section
  
-  // Если не задан режим всех разделов - проверяем, выбран ли именно этот раздел
+  //If the mode for all sections is not set, check whether this particular section is selected
   if ((partnumber == -1) || (partlist[i]==1)) { 
-  // Выводим описание раздела
+  //Displaying a description of the section
   show_part(i);
-  // формируем имя файла в зависимости от формата 
+  //form the file name depending on the format
   if (rflag == RF_YAFFS) sprintf(filename,"%02u-%s.yaffs2",i,part_name(i)); 
   else if (cwsize == sectorsize) sprintf(filename,"%02u-%s.bin",i,part_name(i)); 
   else                   sprintf(filename,"%02u-%s.oob",i,part_name(i));  
-  // заменяем двоеточие на минус в имени файла
+  //replace the colon with a minus in the file name
   if (filename[4] == ':') filename[4]='-';
-  // открываем выходной файл
+  //open the output file
   out=fopen(filename,"wb");  
   if (out == 0) {
-	  printf("\n Ошибка открытия выходного файла %s\n",filename);
+	  printf("\nError opening output file %s\n",filename);
 	  return;
   }
-  // Цикл по блокам раздела
+  //Loop through partition blocks
   for(block=part_start(i); block < (part_start(i)+part_len(i)); block++) {
-          printf("\r * R: блок %06x [start+%03x] (%i%%)",block,block-part_start(i),(block-part_start(i)+1)*100/part_len(i)); 
+          printf("\r * R: block %06x [start+%03x] (%i%%)",block,block-part_start(i),(block-part_start(i)+1)*100/part_len(i)); 
 	  fflush(stdout);
 	  
-    //	  Собственно чтение блока
+    //Actually reading the block
   switch (rflag) {
-    case RF_AUTO: // автовыбор формата
+    case RF_AUTO: //auto format selection
       if ((fptable.part[i].attr2 != 1)||(cwsize>(sectorsize+4))) 
-         // сырое чтение или чтение неизварщенных разделов
+         //raw reading or reading uncooked sections
          badflag=read_block(block,cwsize,out);
       else 
-	 // чтение китайсколинуксовых разделов
+	 //reading Chinese Linux partitions
 	 badflag=read_block_resequence(block,out);
       break;
 	       
-    case RF_STANDART: // стандартный формат  
+    case RF_STANDART: //standard format
       badflag=read_block(block,cwsize,out);
       break;
 	      
-    case RF_LINUX: // китайсколинуксовый формат  
+    case RF_LINUX: //Chinese Linux format
       badflag=read_block_resequence(block,out);
       break;
 	      
-    case RF_YAFFS: // образ файловых разделов
+    case RF_YAFFS: //image of file partitions
       badflag=read_block_yaffs(block,out);
       break;
   }
-  // выводим список найденных ошибок
+  //display a list of found errors
   show_errlist(); 
   if (badflag != 0) {
-      printf(" - дефектный блок");
-      if (bad_processing_flag == BAD_SKIP) printf (", пропускаем");
-      if (bad_processing_flag == BAD_IGNORE) printf (", читаем как есть");
-      if (bad_processing_flag == BAD_FILL) printf (", отмечаем в выходном файле");
+      printf("- defective block");
+      if (bad_processing_flag == BAD_SKIP) printf (", skip");
+      if (bad_processing_flag == BAD_IGNORE) printf (", read as is");
+      if (bad_processing_flag == BAD_FILL) printf (", mark in the output file");
       printf("\n");
   }  
-}    // конец цикла по блокам
+}    //end of block cycle
 
   fclose(out);
-// Обрезка всех FF хвоста
+//Trimming all FF tail
   if (truncflag) {
-      out=fopen(filename,"r+b");  // переоткрываем выходной файл
-      fseek(out,0,SEEK_SET);  // перематываем файл на начало
+      out=fopen(filename,"r+b");  //re-open the output file
+      fseek(out,0,SEEK_SET);  //rewind the file to the beginning
       lastpos=0;
       for(filepos=0;;filepos++) {
 	c=fgetc(out);
 	if (feof(out)) break;
-	if (c != 0xff) lastpos=filepos;  // нашли значимый байт
+	if (c != 0xff) lastpos=filepos;  //found significant byte
       }
 #ifndef WIN32
-       ftruncate(fileno(out),lastpos+1);   // обрезаем файл
+       ftruncate(fileno(out),lastpos+1);   //crop the file
 #else
-       _chsize(_fileno(out),lastpos+1);   // обрезаем файл
+       _chsize(_fileno(out),lastpos+1);   //crop the file
 #endif
       fclose(out);
   }	
- }  // проверка выбора раздела 
-}   // цикл по разделам
+ }  //checking partition selection
+}   //cycle by sections
 
-// восстанавливаем ЕСС
+//restoring the ECC
 mempoke(nand_ecc_cfg,mempeek(nand_ecc_cfg)&0xfffffffe); // ECC on BCH
 mempoke(nand_cfg1,mempeek(nand_cfg1)&0xfffffffe); // ECC on R-S
 

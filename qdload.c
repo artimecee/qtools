@@ -1,55 +1,53 @@
 #include "include.h"
 
-// Размер блока загрузки
+//Load block size
 #define dlblock 1017
 
 //****************************************************
-//*  Выделенеи таблиц разделов в отдельные файлы
+//* Selecting partition tables into separate files
 //****************************************************
 void extract_ptable() {
   
 FILE* out;
 
-// загружаем системную таблицу разделов из MIBIB
+//load the system partition table from MIBIB
 load_ptable("@");
 printf("-----------------------------------------------------");
-// проверяем таблицу
+//check the table
 if (!validpart) {
-   printf("\nСистемная таблица разделов не найдена\n");
+   printf("\nSystem partition table not found\n");
    return;
 }
 out=fopen("ptable/current-r.bin","wb");
 if (out == 0) {
-  printf("\n Ошибка открытия выходного файла ptable/current-r.bin");
+  printf("\nError opening output file ptable/current-r.bin");
   return;
 }  
 fwrite(&fptable,sizeof(fptable),1,out);
-printf("\n * Найдена таблица разделов режима чтения");
+printf("\n * Read mode partition table found");
 fclose (out);
-/*
-// Ищем таблицу записи
+/*// Looking for the record table
 for (pg=pg+1;pg<ppb;pg++) {
-  flash_read(blk, pg, 0);  // сектор 0 - начало таблицы разделов    
-  memread(buf,sector_buf, udsize);
-  if (memcmp(buf,"\x9a\x1b\x7d\xaa\xbc\x48\x7d\x1f",8) != 0) continue; // сигнатура не найдена - ищем дальше
+  flash_read(blk, pg, 0);  // sector 0 - beginning of the partition table    
+  memread(buf, sector_buf, udsize);
+  if (memcmp(buf,"\x9a\x1b\x7d\xaa\xbc\x48\x7d\x1f",8) != 0) continue; // signature not found - look further
 
-  // нашли таблицу записи   
-  mempoke(nand_exec,1);     // сектор 1 - продолжение таблицы
+  // found the record table   
+  mempoke(nand_exec,1);     // sector 1 - continuation of the table
   nandwait();
-  memread(buf+udsize,sector_buf, udsize);
-  npar=*((unsigned int*)&buf[12]); // число разделов в таблице
+  memread(buf+udsize,sector_buf,udsize);
+  npar=*((unsigned int*)&buf[12]); // number of partitions in the table
   out=fopen("ptable/current-w.bin","wb");
   if (out == 0) {
-    printf("\n Ошибка открытия выходного файла ptable/current-w.bin");
+    printf("\nError opening output file ptable/current-w.bin");
     return;
   }  
   fwrite(buf,16+28*npar,1,out);
-  fclose (out);
-  printf("\n * Найдена таблица разделов режима записи");
+  fclose(out);
+  printf("\n * Write mode partition table found");
   return;
 }
-printf("\n - Таблица разделов режима записи не найдена");
-*/
+printf("\n - Write mode partition table not found");*/
 printf("\n");
   
 }
@@ -86,16 +84,16 @@ unsigned int delay=2;
 while ((opt = getopt(argc, argv, "p:k:a:histd:q")) != -1) {
   switch (opt) {
    case 'h': 
-     printf("\n Утилита предназначена для загрузки программ-прошивальщика (E)NPRG в память модема\n\n\
-Допустимы следующие ключи:\n\n\
--p <tty>  - указывает имя устройства последовательного порта, переведенного в download mode\n\
--i        - запускает процедуру HELLO для инициализации загрузчика\n\
--q        - запускает процедуру HELLO в упрощенном режиме без настройки регистров\n\
--t        - вынимает из модема таблицы разделов в файлы ptable/current-r(w).bin\n\
--s        - использовать протокол SAHARA\n\
--k #      - код чипсета (-kl - получить список кодов)\n\
--a <adr>  - адрес загрузки, по умолчанию 41700000\n\
--d <n>    - задержка для инициализации загрузчика, 0.1с\n\
+     printf("\nThe utility is designed to load (E)NPRG flashing programs into the modem memory\n\n\
+The following keys are valid:\n\n\
+-p <tty> - specifies the name of the serial port device put into download mode\n\
+-i - runs the HELLO procedure to initialize the bootloader\n\
+-q - runs the HELLO procedure in simplified mode without setting registers\n\
+-t - extracts partition tables from the modem into files ptable/current-r(w).bin\n\
+-s - use SAHARA protocol\n\
+-k # - chipset code (-kl - get a list of codes)\n\
+-a <adr> - download address, default 41700000\n\
+-d <n> - delay for bootloader initialization, 0.1s\n\
 \n");
     return;
      
@@ -139,104 +137,104 @@ while ((opt = getopt(argc, argv, "p:k:a:histd:q")) != -1) {
 }
 
 if ((tflag == 1) && (helloflag == 0)) {
-  printf("\n Ключ -t без ключа -i указывать нельзя\n");
+  printf("\n The -t switch cannot be specified without the -i switch\n");
   exit(1);
 }  
 
-delay*=100000; // переводим в микросекунды
+delay*=100000; //convert to microseconds
 #ifdef WIN32
 if (*devname == '\0')
 {
-   printf("\n - Последовательный порт не задан\n"); 
+   printf("\n - Serial port not specified\n"); 
    return; 
 }
 #endif
 
 if (!open_port(devname))  {
 #ifndef WIN32
-   printf("\n - Последовательный порт %s не открывается\n", devname); 
+   printf("\n - Serial port %s does not open\n", devname); 
 #else
-   printf("\n - Последовательный порт COM%s не открывается\n", devname); 
+   printf("\n - Serial port COM%s does not open\n", devname); 
 #endif
    return; 
 }
 
-// Удаляем старые таблицы разделов
+//Removing old partition tables
 
 unlink("ptable/current-r.bin");
 unlink("ptable/current-w.bin");
 
 
-// Если чипсет уже определен ключами - определяемся с сахара-режимом
+//If the chipset is already defined by keys, we decide on the sugar mode
 if (chip_type != 0) sahara_flag=get_sahara();
 
 if (!sahara_flag) {
- // открываем входной файл
+ //open the input file
  in=fopen(argv[optind],"rb");
  if (in == 0) {
-  printf("\nОшибка открытия входного файла\n");
+  printf("\nError opening input file\n");
   return;
  } 
- // Идентифицируем загрузчик
- // Ищем блок идентификации
+ //Identifying the bootloader
+ //We are looking for an identification block
  fseek(in,-12,SEEK_END);
  fread(&i,4,1,in);
 
  if (i == 0xdeadbeef) {
-   // нашли блок - разбираем
-   printf("\n Найден блок идентификации загрузчика");
+   //found a block - disassemble it
+   printf("\nBootloader identification block found");
    fread(&ichipset,4,1,in);
    fread(&iaddr,4,1,in);
    ident_flag=1;
    if (start == 0) start=iaddr;
-   if (chip_type == 0) set_chipset(ichipset);  // меняем тип чипсета на определенный из блока идентификации
+   if (chip_type == 0) set_chipset(ichipset);  //change the chipset type to a specific one from the identification block
  }
  rewind(in);
 } 
 
-// проверяем тип чипсета
+//check the chipset type
 if ((chip_type == 0)&&(helloflag==1)) {
-  printf("\n Не указан тип чипсета - полная инициализация невозможна\n");
+  printf("\nChipset type is not specified - full initialization is impossible\n");
   helloflag=2;
 }  
 
-if ((helloflag == 0)&& (chip_type != 0))  printf("\n Чипсет: %s",get_chipname());
+if ((helloflag == 0)&& (chip_type != 0))  printf("\nChipset: %s",get_chipname());
 
 //printf("\n chip_type = %i   sahara = %i",chip_type,sahara_flag);
 
 if ((start == 0) && !sahara_flag) {
-  printf("\n Не указан адрес загрузки\n");
+  printf("\nDownload address not specified\n");
   fclose(in);
   return;
 }  
 
 
 
-//----- Вариант загрузки через сахару -------
+//----- Loading option via sugar -------
 
 if (sahara_flag) {
   if (dload_sahara() == 0) {
 	#ifndef WIN32
-	usleep(200000);   // ждем инициализации загрузчика
+	usleep(200000);   //waiting for the bootloader to initialize
 	#else
-	Sleep(200);   // ждем инициализации загрузчика
+	Sleep(200);   //waiting for the bootloader to initialize
 	#endif
 
 	if (helloflag) {
 		hello(helloflag);
 		printf("\n");
-		if (tflag && (helloflag != 2)) extract_ptable();  // вынимаем таблицы разделов
+		if (tflag && (helloflag != 2)) extract_ptable();  //remove partition tables
 	}
   }
   return;
 }	
 
-//------- Вариант загрузки через запись загрузчика в память ----------
+//------- Boot option via writing the bootloader to memory ----------
 
-printf("\n Файл загрузчика: %s\n Адрес загрузки: %08x",argv[optind],start);
+printf("\nLoader file: %s\nDownload address: %08x",argv[optind],start);
 iolen=send_cmd_base(cmd1,1,iobuf,1);
 if (iolen != 5) {
-   printf("\n Модем не находится в режиме загрузки\n");
+   printf("\nThe modem is not in download mode\n");
 //   dump(iobuf,iolen,0);
    fclose(in);
    return;
@@ -248,30 +246,30 @@ fstat(fileno(in),&fstatus);
 fstat(_fileno(in),&fstatus);
 #endif
 filesize=fstatus.st_size;
-if (ident_flag) filesize-=12; // отрезаем хвост - блок идентификации
-printf("\n Размер файла: %i\n",(unsigned int)filesize);
+if (ident_flag) filesize-=12; //cut off the tail - identification block
+printf("\nFile size: %i\n",(unsigned int)filesize);
 partsize=dlblock;
 
-// Цикл поблочной загрузки 
+//Block loading cycle
 for(i=0;i<filesize;i+=dlblock) {  
  if ((filesize-i) < dlblock) partsize=filesize-i;
- fread(cmddl+7,1,partsize,in);          // читаем блок прямо в командный буфер
- adr=start+i;                           // адрес загрузки этого блока
-   // Как обычно у убогих китайцев, числа вписываются через жопу - в формате Big Endian
-   // вписываем адрес загрузки этого блока
+ fread(cmddl+7,1,partsize,in);          //read the block directly into the command buffer
+ adr=start+i;                           //download address of this block
+   //As usual with the poor Chinese, the numbers are entered through the ass - in Big Endian format
+   //enter the download address of this block
    cmddl[1]=(adr>>24)&0xff;
    cmddl[2]=(adr>>16)&0xff;
    cmddl[3]=(adr>>8)&0xff;
    cmddl[4]=(adr)&0xff;
-   // вписываем размер блока 
+   //enter the block size
    cmddl[5]=(partsize>>8)&0xff;
    cmddl[6]=(partsize)&0xff;
  iolen=send_cmd_base(cmddl,partsize+7,iobuf,1);
- printf("\r Загружено: %i",i+partsize);
+ printf("\r Loaded by: %i",i+partsize);
 // dump(iobuf,iolen,0);
 } 
-// вписываем адрес в команду запуска
-printf("\n Запуск загрузчика..."); fflush(stdout);
+//enter the address in the launch command
+printf("\nLaunch bootloader..."); fflush(stdout);
 cmdstart[1]=(start>>24)&0xff;
 cmdstart[2]=(start>>16)&0xff;
 cmdstart[3]=(start>>8)&0xff;
@@ -279,24 +277,24 @@ cmdstart[4]=(start)&0xff;
 iolen=send_cmd_base(cmdstart,5,iobuf,1);
 close_port();
 #ifndef WIN32
-usleep(delay);   // ждем инициализации загрузчика
+usleep(delay);   //waiting for the bootloader to initialize
 #else
-Sleep(delay/1000);   // ждем инициализации загрузчика
+Sleep(delay/1000);   //waiting for the bootloader to initialize
 #endif
 printf("ok\n");
 if (helloflag) {
   if (!open_port(devname))  {
 #ifndef WIN32
-     printf("\n - Последовательный порт %s не открывается\n", devname); 
+     printf("\n - Serial port %s does not open\n", devname); 
 #else
-     printf("\n - Последовательный порт COM%s не открывается\n", devname); 
+     printf("\n - Serial port COM%s does not open\n", devname); 
 #endif
      fclose(in);
      return; 
   }
   hello(helloflag);
   if (helloflag != 2)
-     if (!bad_loader && tflag) extract_ptable();  // вынимаем таблицы разделов
+     if (!bad_loader && tflag) extract_ptable();  //remove partition tables
 }  
 printf("\n");
 fclose(in);

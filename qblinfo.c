@@ -12,7 +12,7 @@ unsigned int baseaddr=0;
 unsigned int codeoffset=0x28;
 
 if (argv[1] == NULL) {
-  printf("\nНе указан файл\n");
+  printf("\nFile not specified\n");
   return;
 }
 in = fopen(argv[1],"rb");
@@ -25,33 +25,33 @@ fl = fread(&buf,1,sizeof(buf),in);
 fclose(in);
 printf("\n** %s: %u bytes\n",argv[1],fl);
 
-// Анализируем заголовок загрузчика
+//Analyzing the bootloader header
 memcpy(header,buf,28);
 if (header[1] == 0x73d71034) {
-  // новый формат заголовка ENPRG - загрузчиков
+  //new ENPRG header format - loaders
   baseaddr=header[6]-header[5];
   codeoffset=0x50;
 }
 else if (header[1] == 3) {
-  // формат для NPRG и старых ENPRG
+  //format for NPRG and old ENPRG
   baseaddr=header[3]-0x28;
 }
-else printf("\n Неопределенный заголовок файла - скорее всего это не загрузчик");
+else printf("\n Undefined file header - most likely this is not a loader");
 if (baseaddr != 0) { 
-  printf("\n Адрес загрузки:    %08x",baseaddr);
-  printf("\n Адрес начала кода: %08x",baseaddr+codeoffset);
+  printf("\nDownload address: %08x",baseaddr);
+  printf("\n Code start address: %08x",baseaddr+codeoffset);
 }
 
 for (i=0;i<fl;i++) {
  if (hwidfound == 0) {
-	if (((memcmp(buf+i,hwidstr,6)) == 0) && (buf[i-17] == 0x30)) { // ищем строку "HW_ID" в сертификате
-		memcpy(hwid,buf+i-17,16); // нашли, сохраняем значение
+	if (((memcmp(buf+i,hwidstr,6)) == 0) && (buf[i-17] == 0x30)) { //look for the "HW_ID" line in the certificate
+		memcpy(hwid,buf+i-17,16); //found, save the value
 		hwid[16]=0;
-		hwidfound=1; // и больше не ищем
+		hwidfound=1; //and we're not looking anymore
 	}
  }
- if ((i >= 0x1000) && (i%4 == 0) && (tablefound == 0)) { // таблица выровнена по границе слова и ещё не обработана
-	daddr=*((unsigned int*)&buf[i]); // адрес заглушки
+ if ((i >= 0x1000) && (i%4 == 0) && (tablefound == 0)) { //the table is aligned to a word boundary and has not yet been processed
+	daddr=*((unsigned int*)&buf[i]); //stub address
 	if ((daddr<0x10000) || (daddr>0xffff0000)) continue;
 	if ( (daddr != *((unsigned int*)&buf[i-4])) && 
 	  (daddr == *((unsigned int*)&buf[i+8])) && 
@@ -66,14 +66,14 @@ for (i=0;i<fl;i++) {
 	  (daddr == *((unsigned int*)&buf[i+80])) &&
 	  (daddr == *((unsigned int*)&buf[i+88]))
 	) {
-		// таблица найдена	
+		//table found
 		tablefound=1;
-		// цикл выбра команд из таблицы
+		//cycle of selecting commands from the table
 		ncmd=0;
 //		printf("\n--f--");
 		for (j=0;j<0x100;j++) {
 			if (*((unsigned int*)&buf[i-4+4*j]) != daddr) {
-			if ((*((unsigned int*)&buf[i-4+4*j])&0xfffc0000) != (daddr&0xfffc0000)) break; // это не адрес, конец таблицы
+			if ((*((unsigned int*)&buf[i-4+4*j])&0xfffc0000) != (daddr&0xfffc0000)) break; //this is not an address, the end of the table
 			ncmd++;
 			printf("\n CMD %02x = %08x",j+1,*((unsigned int*)&buf[i-4+4*j]));
 			}

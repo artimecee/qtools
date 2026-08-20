@@ -1,12 +1,12 @@
 //
-//  Процедуры работы с адресным пространоством модема через загрузчик
+//Procedures for working with the modem address space through the bootloader
 //
 #include "include.h"
 
 
 
 //***********************
-//* Дамп области памяти *
+//*Dump memory area*
 //***********************
 
 void dump(unsigned char buffer[],unsigned int len,unsigned int base) {
@@ -33,17 +33,17 @@ for (i=0;i<len;i+=16) {
 }
 
 //***********************************8
-//* Чтение области памяти
+//* Read memory area
 //***********************************8
 
 int memread(unsigned char* membuf,int adr, int len) {
 char iobuf[11600];
-int tries;       // число попыток повтора команды
-int errcount=0;      // счктчик ошибок
+int tries;       //number of command retry attempts
+int errcount=0;      //error counter
 
-// параметры апплета чтения - смащения:  
-const int adroffset=0x2E;  // адрес записи
-const int lenoffset=0x32;  // размер данных 
+//Reading applet parameters - offsets:
+const int adroffset=0x2E;  //recording address
+const int lenoffset=0x32;  //data size
 
 char cmdbuf[]={
    0x11,0x00,0x24,0x30,0x9f,0xe5,0x24,0x40,0x9f,0xe5,0x12,0x00,0xa0,0xe3,0x04,0x00,
@@ -54,36 +54,36 @@ char cmdbuf[]={
 
 
 int i,iolen;
-// начальная длина фрагмента
+//initial fragment length
 int blklen=1000;
 *((unsigned int*)&cmdbuf[lenoffset])=blklen;  
 
 ///////////////////
 //printf("\n!ms adr=%08x len=%08x",adr,len);
 
-// Чтение блоками по 1000 байт  
+//Read in 1000 byte blocks
 for(i=0;i<len;i+=1000)  {
- tries=20; // число попыток чтениия блока данных  
- *((unsigned int*)&cmdbuf[adroffset])=i+adr;  //вписываем адрес
+ tries=20; //number of attempts to read a data block
+ *((unsigned int*)&cmdbuf[adroffset])=i+adr;  //enter the address
  if ((i+1000) > len) {
- // последний блок данных - может быть коротким  
+ //last data block - may be short
    blklen=len-i;
-   *((unsigned int*)&cmdbuf[lenoffset])=blklen;  //вписываем длину
+   *((unsigned int*)&cmdbuf[lenoffset])=blklen;  //enter the length
  }
  
- // делаем несколько попыток послать команду и прочитать данные
+ //we make several attempts to send a command and read data
  while (tries>0) {
   iolen=send_cmd_massdata(cmdbuf,sizeof(cmdbuf),iobuf,blklen+4);
   if (iolen <(blklen+4)) {
-     // короткий ответ от загрузчика
+     //short answer from the bootloader
      tries--;
      usleep(1000);
 //     printf("\n!t%i! %i < %i",tries,iolen,blklen+4);
   }
-  else break; // нормальный ответ - заканчиваем с этим блоком данных
+  else break; //normal answer - let's finish with this data block
  }
  if (tries == 0) { 
-    printf("\n Ошибка обработки команды чтения памяти, требуется %i байт, получено %i adr=%08x\n",blklen,iolen,adr);
+    printf("\n Error processing memory read command, %i byte required, received %i adr=%08x\n",blklen,iolen,adr);
     memset(membuf+i,0xeb,blklen);
     errcount++;
  }   
@@ -93,7 +93,7 @@ return !errcount;
 }
 
 //***********************************8
-//* Чтение слова из памяти
+//* Reading a word from memory
 //***********************************8
 unsigned int mempeek(int adr) {
 
@@ -104,14 +104,14 @@ return data;
 
 
 //******************************************
-//*  Запись массива в память
+//* Writing an array to memory
 //******************************************
 int memwrite(unsigned int adr, unsigned char* buf, unsigned int len) {
 
-// параметры апплета записи - смащения:  
-const int adroffset=0x32;  // адрес записи
-const int lenoffset=0x36;  // размер данных 
-const int dataoffset=0x3a; // начало данных
+//recording applet parameters - offsets:
+const int adroffset=0x32;  //recording address
+const int lenoffset=0x36;  //data size
+const int dataoffset=0x3a; //start of data
   
 char cmdbuf[1028]={
   0x11,0x00,0x38,0x00,0x80,0xe2,0x24,0x30,0x9f,0xe5,0x24,0x40,0x9f,0xe5,0x04,0x40,
@@ -122,7 +122,7 @@ char cmdbuf[1028]={
 
 unsigned char iobuf[1024];
   
-if (len>1000) exit(1);  //   ограничитель на размер буфера
+if (len>1000) exit(1);  //buffer size limiter
 memcpy(cmdbuf+dataoffset,buf,len);
 *((unsigned int*)&cmdbuf[adroffset])=adr;
 *((unsigned int*)&cmdbuf[lenoffset])=len;
@@ -133,7 +133,7 @@ return 1;
 
 
 //******************************************
-//*  Запись слова в память
+//* Write a word into memory
 //******************************************
 int mempoke(int adr, int data) {
 

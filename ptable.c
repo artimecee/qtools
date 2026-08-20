@@ -1,16 +1,16 @@
 //
-//  Процедуры работы с таблицей разделов флешки
+//Procedures for working with a flash drive partition table
 //
 #include "include.h"
 
 
-// хранилище таблицы разделов флешки
+//flash drive partition table storage
 struct flash_partition_table fptable;
-int validpart=0; // валидность таблицы
+int validpart=0; //table validity
 
 
 //*************************************
-//* чтение таблицы разделов из flash
+//* reading partition table from flash
 //*************************************
 int load_ptable_flash() {
 
@@ -21,40 +21,40 @@ unsigned char buf[4096];
 if (get_udflag()) udsize=516;
 
 for (blk=0;blk<12;blk++) {
-  // Ищем блок с картами
-  flash_read(blk, 0, 0);     // Страница 0 сектор 0 - заголовок блока MIBIB
+  //We are looking for a block with maps
+  flash_read(blk, 0, 0);     //Page 0 sector 0 - MIBIB block header
   memread(buf,sector_buf, udsize);
-  // проверяем сигнатуру заголовка MIBIB
-  if (memcmp(buf,"\xac\x9f\x56\xfe\x7a\x12\x7f\xcd",8) != 0) continue; // сигнатура не найдена - ищем дальше
+  //checking the MIBIB header signature
+  if (memcmp(buf,"\xac\x9f\x56\xfe\x7a\x12\x7f\xcd",8) != 0) continue; //signature not found - look further
 
-  // найден блок MiBIB - страница 1 содержит системную таблицу разделов
-  // загружаем эту страницу в наш буфер
-  flash_read(blk, 1, 0);     // Страница 1 сектор 0 - системная таблица разделов
+  //MiBIB block found - page 1 contains the system partition table
+  //load this page into our buffer
+  flash_read(blk, 1, 0);     //Page 1 sector 0 - system partition table
   memread(buf,sector_buf, udsize);
-  mempoke(nand_exec,1);     // сектор 1 - продолжение таблицы
+  mempoke(nand_exec,1);     //sector 1 - continuation of the table
   nandwait();
   memread(buf+udsize,sector_buf, udsize);
 
-  // копируем образ таблицы в структуру
+  //copy the table image into the structure
   memcpy(&fptable,buf,sizeof(fptable));
-  // проверяем сигнатуру системной таблицы
+  //checking the system table signature
   if ((fptable.magic1 != FLASH_PART_MAGIC1) || (fptable.magic2 != FLASH_PART_MAGIC2)) continue;
-    // нашли таблицу 
+    //found a table
     validpart=1;
-    // корректируем длину последнего раздела
+    //adjust the length of the last section
     if ((maxblock != 0) && (fptable.part[fptable.numparts-1].len == 0xffffffff)) 
-        fptable.part[fptable.numparts-1].len=maxblock-fptable.part[fptable.numparts-1].offset; // если длина - FFFF, то есть растущий раздел
-    return 1; // все - таблица найдна, более тут делать нечего
+        fptable.part[fptable.numparts-1].len=maxblock-fptable.part[fptable.numparts-1].offset; //if the length is FFFF, then there is a growing partition
+    return 1; //That's it - the table has been found, there is nothing more to do here
 }  
 validpart=0;
 return 0;  
 }
 
 //***************************************************
-//* Загрузка таблицы разделов из внешнего файла
+//* Loading partition table from external file
 //*
-//*  Имя файла, состоящее из одного занка минуса '-' - 
-//*   загрузка из файла ptable/current-r.bin
+//* File name consisting of one minus sign '-' -
+//* loading from file ptable/current-r.bin
 //***************************************************
 int load_ptable_file(char* name) {
 
@@ -67,25 +67,25 @@ else strncpy(filename,name,199);
   
 pf=fopen(filename,"rb");
 if (pf == 0) {
-   printf("\n! Ошибка открытия файла таблицы разделов %s\n",filename);
+   printf("\n! Error opening partition table file %s\n",filename);
    return 0;
 } 
-fread(buf,1024,1,pf); // читаем таблицу разделов из файла
+fread(buf,1024,1,pf); //read partition table from file
 fclose(pf);
-// копируем образ таблицы в структуру
+//copy the table image into the structure
 memcpy(&fptable,buf,sizeof(fptable));
 validpart=1;
 return 1;
 }
 
 //*****************************************************
-//* Универсальная процедура загрузки таблицы разделов
+//* Universal partition table loading procedure
 //*
-//*  Возможные варианты name:
+//* Possible name options:
 //*
-//*    @ - загрузка таблицы с флешки
-//*    - - загрузка из файла ptable/current-r.bin
-//*  имя - загрузка из указанного файла
+//* @ - loading table from flash drive
+//* - - loading from file ptable/current-r.bin
+//* name - loading from the specified file
 //*
 //*****************************************************
 int load_ptable(char* name) {
@@ -95,22 +95,22 @@ else return load_ptable_file(name);
 }
   
 //***************************************************
-//* Вывод заголовка таблицы разделов
+//* Display the partition table header
 //***************************************************
 void print_ptable_head() {
 
-  printf("\n #  начало  размер   A0 A1 A2 F#  формат ------ Имя------");     
+  printf("\n # start size A0 A1 A2 F# format ------ Name------");     
   printf("\n============================================================\n");
 }
 
 
 //***************************************************
-//* Вывод информции о разделе по его номеру
+//* Display information about a section by its number
 //***************************************************
 int show_part(int pn) {
   
-if (!validpart) return 0; // таблица еще не загружена
-if (pn>=fptable.numparts) return 0; // неправильный номер раздела
+if (!validpart) return 0; //the table has not yet been loaded
+if (pn>=fptable.numparts) return 0; //wrong section number
 printf("\r%02u  %6x",
        pn,
        fptable.part[pn].offset);
@@ -132,21 +132,21 @@ return 1;
 
 
 //*************************************
-//* Вывод таблицы разделов на экран
+//* Displaying the partition table on the screen
 //*************************************
 void list_ptable() {
   
 int i;
 
-if (!validpart) return; // таблица еще не загружена
+if (!validpart) return; //the table has not yet been loaded
 print_ptable_head();
 for (i=0;i<fptable.numparts;i++) show_part(i);
 printf("============================================================");
-printf("\n Версия таблицы разделов: %i\n",fptable.version);
+printf("\nPartition table version: %i\n",fptable.version);
 }
 
 //*************************************
-// Получение имени по номеру раздела
+//Getting a name by section number
 //*************************************
 char* part_name(int pn) {
   
@@ -154,7 +154,7 @@ return fptable.part[pn].name;
 }
 
 //*********************************************
-// Получение стартового блока по номеру раздела
+//Getting the starting block by section number
 //*********************************************
 int part_start(int pn) {
   
@@ -162,7 +162,7 @@ return fptable.part[pn].offset;
 }
 
 //*********************************************
-// Получение длины раздела по номеру раздела
+//Getting partition length by partition number
 //*********************************************
 int part_len(int pn) {
   
@@ -170,7 +170,7 @@ return fptable.part[pn].len;
 }
 
 //************************************************************
-// Получение номера раздела, в который входит указанный блок
+//Getting the number of the section that contains the specified block
 //************************************************************
 int block_to_part(int block) {
 
@@ -179,6 +179,6 @@ for(i=0;i<fptable.numparts;i++) {
   if ((block>=part_start(i)) && (block < (part_start(i)+part_len(i)))) 
      return i;
 }
-// раздел не найден
+//partition not found
 return -1; 
 }

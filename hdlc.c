@@ -1,10 +1,10 @@
 //
-//  Процедуры для рабты с последовательным портом и HDLC-командами
+//Procedures for working with the serial port and HDLC commands
 //
 #define NO_IO
 #include "include.h"
 
-static char pdev[500]; // имя последовательного порта
+static char pdev[500]; //serial port name
   
 #ifndef WIN32
 struct termios sioparm;
@@ -12,11 +12,11 @@ struct termios sioparm;
 static HANDLE hSerial;
 COMMTIMEOUTS ct;
 #endif
-int siofd; // fd для работы с Последовательным портом
+int siofd; //fd for working with the Serial port
 
 
 //*************************************************
-//*  Вычисление CRC-16 
+//*CRC-16 calculation
 //*************************************************
 unsigned short crc16(char* buf, int len) {
 
@@ -86,7 +86,7 @@ int write(int siofd, unsigned char* buf, int len)
 
 #endif
 
-// очиска буфера последовательного порта
+//clearing the serial port buffer
 void ttyflush() { 
 
 #ifndef WIN32
@@ -97,25 +97,25 @@ PurgeComm(hSerial, PURGE_RXCLEAR);
 }
 
 //*************************************************
-//*    отсылка буфера в модем
+//* sending a buffer to the modem
 //*************************************************
 unsigned int send_unframed_buf(char* outcmdbuf, unsigned int outlen, int prefixflag) {
 
 unsigned char tmpbuf[4096];  
   
-// сбрасываем недочитанный буфер ввода
+//reset unread input buffer
 ttyflush();
 
-if (prefixflag) { // вставляем префикс, если надо
+if (prefixflag) { //insert a prefix if necessary
 	memcpy(tmpbuf,outcmdbuf,outlen);
 	memcpy(outcmdbuf+1,tmpbuf,outlen);
 	outcmdbuf[0]=0x7e; 
 	outlen+=1;
 } 
 
-if (write(siofd,outcmdbuf,outlen) == 0) {   printf("\n Ошибка записи команды");return 0;  }
+if (write(siofd,outcmdbuf,outlen) == 0) {   printf("\nError writing command");return 0;  }
 #ifndef WIN32
-tcdrain(siofd);  // ждем окончания вывода блока
+tcdrain(siofd);  //waiting for the block to finish outputting
 #else
 FlushFileBuffers(hSerial);
 #endif
@@ -123,9 +123,9 @@ return 1;
 }
 
 //******************************************************************************************
-//* Прием буфера с ответом из модема
+//* Receiving buffer with response from modem
 //*
-//*  masslen - число байтов, принимаемых единым блоком без анализа признака конца 7F
+//* masslen - the number of bytes received in a single block without analyzing the 7F terminator
 //******************************************************************************************
 
 unsigned int receive_reply(char* iobuf, int masslen) {
@@ -137,36 +137,36 @@ unsigned char replybuf[14000];
 
 incount=0;
 if (read(siofd,&c,1) != 1) {
-//  printf("\n Нет ответа от модема");
-  return 0; // модем не ответил или ответил неправильно
+//printf("\nNo response from modem");
+  return 0; //The modem did not respond or responded incorrectly
 }
 //if (c != 0x7e) {
-//  printf("\n Первый байт ответа - не 7e: %02x",c);
-//  return 0; // модем не ответил или ответил неправильно
+//printf("\nThe first byte of the response is not 7e: %02x",c);
+//return 0; // the modem did not respond or responded incorrectly
 //}
 replybuf[incount++]=c;
 
-// чтение массива данных единым блоком при обработке команды 03
+//reading a data array as a single block when processing command 03
 if (masslen != 0) {
  res=read(siofd,replybuf+1,masslen-1);
  if (res != (masslen-1)) {
-//   printf("\nСлишком короткий ответ от модема: %i байт, ожидалось %i байт\n",res+1,masslen);
+//printf("\nResponse from the modem is too short: %i bytes, expected %i bytes\n",res+1,masslen);
 //   dump(replybuf,res+1,0);
    return 0;
  }  
- incount+=masslen-1; // у нас в буфере уже есть masslen байт
+ incount+=masslen-1; //we already have masslen bytes in the buffer
 // printf("\n ------ it mass --------");
 // dump(replybuf,incount,0);
 }
 
-// принимаем оставшийся хвост буфера
+//accept the remaining tail of the buffer
 while (read(siofd,&c,1) == 1)  {
  replybuf[incount++]=c;
 // printf("\n-- %02x",c);
  if (c == 0x7e) break;
 }
 
-// Преобразование принятого буфера для удаления ESC-знаков
+//Converting a received buffer to remove ESC characters
 escflag=0;
 iolen=0;
 for (i=0;i<incount;i++) { 
@@ -192,7 +192,7 @@ return iolen;
 
 
 //***********************************************************
-//* Преобразование командного буфера с Escape-подстановкой
+//* Command buffer conversion with Escape substitution
 //***********************************************************
 unsigned int convert_cmdbuf(char* incmdbuf, int blen, char* outcmdbuf) {
 
@@ -201,13 +201,13 @@ unsigned char cmdbuf[14096];
 
 bcnt=blen;
 memcpy(cmdbuf,incmdbuf,blen);
-// Вписываем CRC в конец буфера
+//Write the CRC to the end of the buffer
 *((unsigned short*)(cmdbuf+bcnt))=crc16(cmdbuf,bcnt);
 bcnt+=2;
 
-// Пребразование данных с экранированием ESC-последовательностей
+//Data conversion with escape ESC sequences
 iolen=0;
-outcmdbuf[iolen++]=cmdbuf[0];  // первый байт копируем без модификаций
+outcmdbuf[iolen++]=cmdbuf[0];  //The first byte is copied without modifications
 for(i=1;i<bcnt;i++) {
    switch (cmdbuf[i]) {
      case 0x7e:
@@ -224,7 +224,7 @@ for(i=1;i<bcnt;i++) {
        outcmdbuf[iolen++]=cmdbuf[i];
    }
  }
-outcmdbuf[iolen++]=0x7e; // завершающий байт
+outcmdbuf[iolen++]=0x7e; //trailing byte
 outcmdbuf[iolen]=0;
 return iolen;
 }
@@ -232,10 +232,10 @@ return iolen;
 
 
 //***************************************************
-//*  Отсылка команды в порт и получение результата  *
+//* Sending a command to a port and receiving the result *
 //*
-//* prefixflag=0 - не посылать префикс 7E
-//*            1 - посылать
+//* prefixflag=0 - do not send prefix 7E
+//* 1 - send
 //***************************************************
 int send_cmd_base(unsigned char* incmdbuf, int blen, unsigned char* iobuf, int prefixflag) {
   
@@ -243,13 +243,13 @@ unsigned char outcmdbuf[14096];
 unsigned int  iolen;
 
 iolen=convert_cmdbuf(incmdbuf,blen,outcmdbuf);  
-if (!send_unframed_buf(outcmdbuf,iolen,prefixflag)) return 0; // ошибка передачи команды
+if (!send_unframed_buf(outcmdbuf,iolen,prefixflag)) return 0; //command transmission error
 return receive_reply(iobuf,0);
 }
 
 //***************************************************************
-//*  Отсылка команды в порт и получение результата в виде 
-//*  большого буфера определенного размера
+//* Sending a command to the port and receiving the result in the form
+//* large buffer of a certain size
 //*
 //***************************************************
 int send_cmd_massdata(unsigned char* incmdbuf, int blen, unsigned char* iobuf, unsigned int datalen) {
@@ -258,28 +258,28 @@ unsigned char outcmdbuf[14096];
 unsigned int  iolen;
 
 iolen=convert_cmdbuf(incmdbuf,blen,outcmdbuf);  
-if (!send_unframed_buf(outcmdbuf,iolen,0)) return -1; // ошибка передачи команды
+if (!send_unframed_buf(outcmdbuf,iolen,0)) return -1; //command transmission error
 //dump(outcmdbuf,iolen,0); fflush(stdout);
 return receive_reply(iobuf,datalen);
 }
 
 
 //***************************************************
-//*    Отсылка команды с префиксом
+//* Sending a command with a prefix
 //***************************************************
 int send_cmd(unsigned char* incmdbuf, int blen, unsigned char* iobuf) {
    return send_cmd_base(incmdbuf, blen, iobuf,1);
 }
 
 //***************************************************
-//*    Отсылка команды без префикса
+//* Sending a command without a prefix
 //***************************************************
 int send_cmd_np(unsigned char* incmdbuf, int blen, unsigned char* iobuf) {
    return send_cmd_base(incmdbuf, blen, iobuf,0);
 }
 
 //*************************************
-// Открытие и настройка последовательного порта
+//Opening and Configuring a Serial Port
 //*************************************
 
 int open_port(char* devname) {
@@ -291,23 +291,23 @@ int open_port(char* devname) {
 int i,dflag=1;
 char devstr[200]={0};
 
-strcpy(pdev,devname);   // сохраняем имя порта  
+strcpy(pdev,devname);   //save the port name
 
-// Вместо полного имени устройства разрешается передавать только номер ttyUSB-порта
+//Instead of the full device name, only the ttyUSB port number is allowed to be transmitted
 
-// Проверяем имя устройства на наличие нецифровых символов
+//Checking the device name for non-numeric characters
 for(i=0;i<strlen(devname);i++) {
   if ((devname[i]<'0') || (devname[i]>'9')) dflag=0;
 }
-// Если в строке - только цифры, добавляем префикс /dev/ttyUSB
+//If the line contains only numbers, add the prefix /dev/ttyUSB
 if (dflag) strcpy(devstr,"/dev/ttyUSB");
-// копируем имя устройства
+//copy the device name
 strcat(devstr,devname);
 
 siofd = open(devstr, O_RDWR | O_NOCTTY |O_SYNC);
 if (siofd == -1) return 0;
 
-bzero(&sioparm, sizeof(sioparm)); // готовим блок атрибутов termios
+bzero(&sioparm, sizeof(sioparm)); //preparing the termios attribute block
 sioparm.c_cflag = B115200 | CS8 | CLOCAL | CREAD ;
 sioparm.c_iflag = 0;  // INPCK;
 sioparm.c_oflag = 0;
@@ -322,7 +322,7 @@ return 1;
     char device[20] = "\\\\.\\COM";
     DCB dcbSerialParams = {0};
 
-	strcpy(pdev,devname);   // сохраняем имя порта  
+	strcpy(pdev,devname);   //save the port name
     strcat(device, devname);
     
     hSerial = CreateFileA(device, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
@@ -350,7 +350,7 @@ return 1;
 }
 
 //*************************************
-// Закрытие последовательного порта
+//Closing the serial port
 //*************************************
 
 void close_port()
@@ -363,26 +363,26 @@ CloseHandle(hSerial);
 }
 
 //****************************************
-//* Переоткрытие последовательного порта
+//* Reopening the serial port
 //****************************************
 void reopen_port() {
 
 close_port();
 usleep(1000);
 if (!open_port(pdev)) {
-  printf("\n Ошибка открытия порта %s",pdev);
+  printf("\nError opening port %s",pdev);
   exit(1);
 } 
 }
 
 
 //*************************************
-// Настройка таймаутов последовательного порта
+//Setting Serial Port Timeouts
 //*************************************
 
 void port_timeout(int timeout) {
 #ifndef WIN32
-bzero(&sioparm, sizeof(sioparm)); // готовим блок атрибутов termios
+bzero(&sioparm, sizeof(sioparm)); //preparing the termios attribute block
 sioparm.c_cflag = B115200 | CS8 | CLOCAL | CREAD ;
 sioparm.c_iflag = 0;  // INPCK;
 sioparm.c_oflag = 0;
@@ -401,9 +401,9 @@ SetCommTimeouts(hSerial,&ct);
 }
 
 //*****************************************************
-//*  Обработка отлупов загрузчика
+//* Processing bootloader bugs
 //* 
-//* descr - имя процедуры, посылающей командный пакет
+//* descr - name of the procedure sending the command packet
 //*****************************************************
 
 void show_errpacket(char* descr, char* pktbuf, int len) {
@@ -412,15 +412,15 @@ char iobuf[2048];
 int iolen,i;
   
 if (len == 0) return;
-printf("\n! %s вернул ошибку: ",descr);  
+printf("\n! %s returned an error:",descr);  
 if (pktbuf[1] == 0x0e) {
-  // текстовый отлуп - печатаем его
+  //text loop - print it
   pktbuf[len-4]=0;
   puts(pktbuf+2);
   iolen=receive_reply(iobuf,0);
   if (iolen != 0) {
       i=*((unsigned int*)&iobuf[2]);
-      printf("Код ошибки = %08x\n\n",i);
+      printf("Error code = %08x\n\n",i);
   }
 }
 else {

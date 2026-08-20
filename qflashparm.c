@@ -1,6 +1,6 @@
 #include "include.h"
 
-// Установка параметров flash-контроллера
+//Setting flash controller parameters
 //
 
 void main(int argc, char* argv[]) {
@@ -11,7 +11,7 @@ char devname[20]="/dev/ttyUSB0";
 char devname[20]="";
 #endif
 
-// локальные параметры для установки
+//local settings for installation
 int lud=-1, lecc=-1, lspare=-1, lbad=-1;
 int sflag=0;
 int opt;
@@ -20,14 +20,13 @@ int badloc;
 while ((opt = getopt(argc, argv, "hp:s:u:e:d:")) != -1) {
   switch (opt) {
    case 'h': 
-     printf("\n Утилита предназначена установки параметров NAND-контроллера\n\n\
-Допустимы следующие ключи:\n\n\
--p <tty> - указывает имя устройства последовательного порта для общения с загрузчиком\n\
--s nnn   - установка размера поля spare на сектор\n\
--u nnn   - установка размера поля данных сектора\n\
--e nnn   - установка размера поля ECC на сектор\n\
--d [L]xxx- установка маркера дефектных блоков на байт xxx (hex), L=U(user) или S(spare)\n\
-");
+     printf("\nThe utility is designed to set NAND controller parameters\n\n\
+The following keys are valid:\n\n\
+-p <tty> - specifies the name of the serial port device to communicate with the bootloader\n\
+-s nnn - set the size of the spare field per sector\n\
+-u nnn - set the size of the sector data field\n\
+-e nnn - set the ECC field size per sector\n\
+-d [L]xxx- set the bad block marker to byte xxx (hex), L=U(user) or S(spare)\n\");
     return;
      
    case 'p':
@@ -63,16 +62,16 @@ while ((opt = getopt(argc, argv, "hp:s:u:e:d:")) != -1) {
 #ifdef WIN32
 if (*devname == '\0')
 {
-   printf("\n - Последовательный порт не задан\n"); 
+   printf("\n - Serial port not specified\n"); 
    return; 
 }
 #endif
 
 if (!open_port(devname))  {
  #ifndef WIN32
-   printf("\n - Последовательный порт %s не открывается\n", devname); 
+   printf("\n - Serial port %s does not open\n", devname); 
 #else
-   printf("\n - Последовательный порт COM%s не открывается\n", devname); 
+   printf("\n - Serial port COM%s does not open\n", devname); 
 #endif
   return; 
 }

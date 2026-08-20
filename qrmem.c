@@ -1,10 +1,10 @@
 #include "include.h"
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-//* Чтение участка памяти модема в файл qmem.bin
+//* Reading a section of modem memory into the qmem.bin file
 //
-// qread <адрес> <длина>
-// Чтение идет блоками по 512 байт. Все чила - в hex
+//qread <address> <length>
+//Reading occurs in blocks of 512 bytes. All readings are in hex
 //
 
 void main(int argc, char* argv[]) {
@@ -25,13 +25,13 @@ char devname[20]="";
 while ((opt = getopt(argc, argv, "p:a:l:o:hi")) != -1) {
   switch (opt) {
    case 'h': 
-     printf("\n Утилита предназначена для чтения адресного пространства модема\n\n\
-Допустимы следующие ключи:\n\n\
--i        - запускает процедуру HELLO для инициализации загрузчика\n\
--p <tty>  - указывает имя устройства последовательного порта для общения с загрузчиком\n\
--o <file> - имя выходного файла (по умолчанию qmem.bin)\n\n\
--a <adr>  - начальный адрес\n\
--l <num>  - размер читаемого участка\n");
+     printf("\nThe utility is designed to read the modem address space\n\n\
+The following keys are valid:\n\n\
+-i - runs the HELLO procedure to initialize the bootloader\n\
+-p <tty> - specifies the name of the serial port device to communicate with the bootloader\n\
+-o <file> - output file name (default qmem.bin)\n\n\
+-a <adr> - starting address\n\
+-l <num> - size of the read section\n");
     return;
      
    case 'p':
@@ -63,21 +63,21 @@ while ((opt = getopt(argc, argv, "p:a:l:o:hi")) != -1) {
 #ifdef WIN32
 if (*devname == '\0')
 {
-   printf("\n - Последовательный порт не задан\n"); 
+   printf("\n - Serial port not specified\n"); 
    return; 
 }
 #endif
 
 if (len == 0) {
-  printf("\n Неправильная длина");
+  printf("\nWrong length");
   return;
 }  
 
 if (!open_port(devname))  {
  #ifndef WIN32
-   printf("\n - Последовательный порт %s не открывается\n", devname); 
+   printf("\n - Serial port %s does not open\n", devname); 
 #else
-   printf("\n - Последовательный порт COM%s не открывается\n", devname); 
+   printf("\n - Serial port COM%s does not open\n", devname); 
 #endif
   return; 
 }
@@ -87,7 +87,7 @@ out=fopen(filename,"wb");
 if (helloflag) hello(2);
 
 endadr=adr+len;
-printf("\n Чтение области %08x - %08x\n",adr,endadr-1);
+printf("\nReading area %08x - %08x\n",adr,endadr-1);
 
 for(i=adr;i<endadr;i+=512)  {
  printf("\r %08x",i); 

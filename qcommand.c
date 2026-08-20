@@ -1,18 +1,18 @@
 #include "include.h"
 
-// флаг посылки префикса 7E
+//send prefix flag 7E
 int prefixflag=1;
-// флаг HDLC-режима
+//HDLC mode flag
 int hdlcflag=1; 
 
 
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-//* Интерактивная оболочка для ввода команд в загрузчик
+//* Interactive shell for entering commands into the bootloader
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 
 //*******************************************************************
-//* Отправка командного буфера в модем и размор результата
+//* Sending a command buffer to the modem and saving the result
 //*******************************************************************
 void iocmd(char* cmdbuf, int cmdlen) {
 
@@ -20,7 +20,7 @@ unsigned char iobuf[2048];
 unsigned int iolen;
   
 if (hdlcflag) {
-  // Команда HDLC-режима
+  //HDLC mode command
   iolen=send_cmd_base(cmdbuf,cmdlen,iobuf,prefixflag);
   if (iobuf[1] == 0x0e) {
     show_errpacket ("[ERR] ", iobuf, iolen);
@@ -33,39 +33,39 @@ else  {
 }  
   
 if (iolen != 0) {
-  printf("\n ---- ответ --- \n");
+  printf("\n ---- answer --- \n");
   dump(iobuf,iolen,0);
 }  
 printf("\n");
 }
 
 //*******************************************************************
-//* Поиск в строке символов, отличающихся от пробела
+//* Search for characters other than space in a string
 //*
 //* zmode - 
-//*  0 - искать первый непробел
-//*  1 - искать сначала пробел, потом непробел
+//* 0 - look for the first non-space
+//* 1 - search for space first, then non-space
 //*******************************************************************
 char* find_token(char* line, int zmode) {
   
 int i=0;
 
 if (zmode) { 
-  // ищем пробел
+  //looking for a space
   for (i=0; line[i] != ' ' ; i++) {
-   if ((line[i] == '\r') || (line [i] == '\n') || (line [i] == 0)) return 0; // логический конец строки
+   if ((line[i] == '\r') || (line [i] == '\n') || (line [i] == 0)) return 0; //logical end of line
   } 
 }
 
 for (; line[i] != 0 ; i++) {
-  if ((line[i] == '\r') || (line [i] == '\n')) return 0; // логический конец строки
+  if ((line[i] == '\r') || (line [i] == '\n')) return 0; //logical end of line
   if (line[i] != ' ') return line+i;
 }
 return 0;
 }
 
 //*******************************************************************
-//* Разбор введенной командной последовательности и ее запуск
+//* Parse the entered command sequence and run it
 //*******************************************************************
 void ascii_cmd(char* line) {
 
@@ -74,23 +74,23 @@ unsigned char cmdbuf[2048];
 int bcnt=0;
 int i;
 
-sptr=find_token(line,0); // разбор командных байтов, разделенных пробелами
-if (sptr == 0) return; // пустая командная строка
+sptr=find_token(line,0); //parsing command bytes separated by spaces
+if (sptr == 0) return; //empty command line
 
 do {
   if (*sptr == '\"') {
-    // режим ввода ascii-текста
+    //ascii text input mode
     sptr++;
-    while(*sptr != '\"') { // до кавычки
+    while(*sptr != '\"') { // before quote
      if ((*sptr == 0) || (*sptr == '\n') || (*sptr == '\r')) {
-       printf("\n Закрывающая кавычка отстутствует\n");
+       printf("\nThe closing quote is missing\n");
        return;
      }  
      cmdbuf[bcnt++]=*sptr++;
     }  
   }
   else {
-    // режим ввода hex-байтов
+    // hex byte input mode
     sscanf(sptr,"%x",&i);
     cmdbuf[bcnt++]=i;
   } 
@@ -100,9 +100,9 @@ do {
 iocmd(cmdbuf,bcnt);
 }
 
-//*******************************************************************
-//*  Отправка в модем содержимого файла в качестве команды 
-//*******************************************************************
+//********************************************************************************
+//* Sending the contents of a file to the modem as a command 
+//********************************************************************************
 void binary_cmd(char* line) {
   
 unsigned char cmdbuf[2048];
@@ -110,20 +110,20 @@ FILE* fcmd;
 unsigned int i;
 
 char* sptr;
-sptr=strtok(line," "); // выделяем имя файла
+sptr=strtok(line," "); // select the file name
 if (sptr == 0) {
-  printf(" Не указано имя файла\n");
+  printf("File name not specified\n");
   return;
 }  
 fcmd=fopen(sptr,"r");
 if (fcmd == 0) {
-  printf(" Ошибка открытия файла %s\n",sptr);
+  printf("Error opening file %s\n",sptr);
   return;
 }
 fseek(fcmd,0,SEEK_END);
 i=ftell(fcmd);
 if (i>1024) {
-  printf(" Слишком большой файл - %u байт\n",i);
+  printf("The file is too large - %u bytes\n",i);
   fclose(fcmd);
   return;
 }
@@ -134,16 +134,16 @@ iocmd(cmdbuf,i);
 }
 
 
-//*******************************************************************
-//*   Переключение hdlc-режима
-//*******************************************************************
+//********************************************************************************
+//* Switching HDLC mode
+//********************************************************************************
 void hdlcswitch(char* line) {
 
 char* sptr;
 unsigned int mode;
-sptr=strtok(line," "); // выделяем параметр
+sptr=strtok(line," "); // select the parameter
 
-if (sptr != 0) {  // режим указан - устанавливаем его
+if (sptr != 0) { // mode is specified - set it
   sscanf(sptr,"%u",&mode);
   hdlcflag=mode?1:0;
 }
@@ -151,13 +151,13 @@ printf(" HDLC %s\n",hdlcflag?"On":"Off");
 }
 
 
-//**********************************************
-//*  Разбор содержимого регистра CFG0
-//**********************************************
+//******************************************************
+//* Parsing the contents of the CFG0 register
+//******************************************************
 void decode_cfg0() {
   
 unsigned int cfg0=mempeek(nand_cfg0);
-printf("\n **** Конфигурационный регистр 0 *****");
+printf("\n **** Configuration register 0 *****");
 printf("\n * NUM_ADDR_CYCLES              = %x",(cfg0>>27)&7);
 printf("\n * SPARE_SIZE_BYTES             = %x",(cfg0>>23)&0xf);
 printf("\n * ECC_PARITY_SIZE_BYTES        = %x",(cfg0>>19)&0xf);
@@ -167,13 +167,13 @@ printf("\n * DISABLE_STATUS_AFTER_WRITE   = %x",(cfg0>>4)&1);
 printf("\n * BUSY_TIMEOUT_ERROR_SELECT    = %x",(cfg0)&7);
 }
 
-//**********************************************
-//*  Разбор содержимого регистра CFG1
-//**********************************************
+//******************************************************
+//* Parsing the contents of the CFG1 register
+//******************************************************
 void decode_cfg1() {
   
 unsigned int cfg1=mempeek(nand_cfg1);
-printf("\n **** Конфигурационный регистр 1 *****");
+printf("\n **** Configuration register 1 *****");
 printf("\n * ECC_MODE                      = %x",(cfg1>>28)&3);
 printf("\n * ENABLE_BCH_ECC                = %x",(cfg1>>27)&1);
 printf("\n * DISABLE_ECC_RESET_AFTER_OPDONE= %x",(cfg1>>25)&1);
@@ -189,9 +189,9 @@ printf("\n * ECC_DISABLE                   = %x",(cfg1)&1);
 }
 
 
-//**********************************************8
-//* обработка команд
-//**********************************************8
+//****************************************************************8
+//* command processing
+//****************************************************************8
 
 void process_command(char* cmdline) {
 
@@ -203,23 +203,21 @@ int block,page,sect;
 
 switch (cmdline[0]) {
   
-  // help
+  //help
   case 'h':
-    printf("\n Доступны следующие команды:\n\n\
-c nn nn nn nn.... - формирование и запуск командного пакета из перечисленных байтов\n\
-@ file            - запуск командного пакета из указанного файла\n\
-d adr [len]       - прсмотр дампа адресного пространства системы\n\
-m adr word ...    - записать слова по указанному адресу\n\
-r block page sect - чтение блока флешки в секторный буфер \n\
-s                 - прсмотр дампа сектороного буфера NAND-контроллера\n\
-n                 - просмотр содежримого регистров NAND-контроллера\n\
-k                 - разбор содержимого конфигурационных регистров\n\
-i [s]             - запуск процедуры HELLO, s - без настройки конфигурации\n\
-f [n]             - включение(1)/отключение(0)/просмотр состояния HDLC-режима\n\
-x                 - выход из программы\n\
+    printf("\nThe following commands are available:\n\n\
+c nn nn nn nn.... - formation and launch of a command packet from the listed bytes\n\
+@file - run a command package from the specified file\n\
+d adr [len] - view the system address space dump\n\
+m adr word ... - write words to the specified address\n\r block page sect - read a flash drive block into the sector buffer \n\
+s - view the sector buffer dump of the NAND controller\n\n - view the contents of the NAND controller registers\n\
+k - parsing the contents of configuration registers\n\
+i [s] - launching the HELLO procedure, s - without configuration settings\n\
+f [n] - enable(1)/disable(0)/view HDLC mode status\n\
+x - exit the program\n\
 \n");
     break;
-  // обработка командного пакета
+  // processing the command packet
   case 'c':  
    ascii_cmd(cmdline+1);
    break;
@@ -232,56 +230,56 @@ x                 - выход из программы\n\
     hdlcswitch(cmdline+1);
     break;
     
-  // активация загрузчика 
+  // bootloader activation 
   case 'i':
-    sptr=strtok(cmdline+1," "); // адрес
+    sptr=strtok(cmdline+1," "); //address
     if ((sptr == 0) || (sptr[0] == 0x0a)) {
       hello(1);
       break;
     }
     if (sptr[0] != 's') {
-      printf("\n Недопустимый параметр в команде i");
+      printf("\nInvalid parameter in command i");
       break;
     }
     hello(2);
     break;
     
-  // дамп памяти
+  // memory dump
   case 'd':  
-   sptr=strtok(cmdline+1," "); // адрес
-   if (sptr == 0) {printf("\n Не указан адрес"); return;}
+   sptr=strtok(cmdline+1," "); //address
+   if (sptr == 0) {printf("\nAddress not specified"); return;}
    sscanf(sptr,"%x",&adr);
-   sptr=strtok(0," "); // длина
+   sptr=strtok(0," "); // length
    if (sptr != 0) sscanf(sptr,"%x",&len);
    if (memread(membuf,adr,len)) dump(membuf,len,adr); 
    break;
 
   case 'm':
-   sptr=strtok(cmdline+1," "); // адрес
-   if (sptr == 0) {printf("\n Не указан адрес"); return;}
+   sptr=strtok(cmdline+1," "); //address
+   if (sptr == 0) {printf("\nAddress not specified"); return;}
    sscanf(sptr,"%x",&adr);
-   while((sptr=strtok(0," ")) != 0) { // данные
+   while((sptr=strtok(0," ")) != 0) { // data
      sscanf(sptr,"%x",&data);
-     if (!mempoke(adr,data)) printf("\nКоманда возвратила ошибку, adr=%08x  data=%08x\n",adr,data);
+     if (!mempoke(adr,data)) printf("\nThe command returned an error, adr=%08x data=%08x\n",adr,data);
      adr+=4;
    }
    break;
 
   case 'r':
    hello(0);
-   sptr=strtok(cmdline+1," "); // блок
-   if (sptr == 0) {printf("\n Не указан # блока"); return;}
+   sptr=strtok(cmdline+1," "); // block
+   if (sptr == 0) {printf("\n Block # not specified"); return;}
    sscanf(sptr,"%x",&block);
 
-   sptr=strtok(0," ");        // страница
-   if (sptr == 0) {printf("\n Не указан # страницы"); return;}
+   sptr=strtok(0," ");        // page
+   if (sptr == 0) {printf("\nNo page # specified"); return;}
    sscanf(sptr,"%x",&page);
-   if (page>63)  {printf("\n Слишком большой # страницы"); return;}
+   if (page>63)  {printf("\nPage # too big"); return;}
    
-   sptr=strtok(0," ");        // сектор
-   if (sptr == 0) {printf("\n Не указан # сектора"); return;}
+   sptr=strtok(0," ");        // sector
+   if (sptr == 0) {printf("\nSector # not specified"); return;}
    sscanf(sptr,"%x",&sect);
-   if (sect>spp-1)  {printf("\n Слишком большой # сектора"); return;}
+   if (sect>spp-1)  {printf("\nSector # too large"); return;}
    
    if (!flash_read(block,page,sect)) printf("\n    *** badblock ***\n");
    memread(membuf,sector_buf,0x23c);
@@ -356,7 +354,7 @@ x                 - выход из программы\n\
     break;
    
   default:
-    printf("\nНеопределенная команда\n");
+    printf("\nUndefined command\n");
     break;
 }   
 }    
@@ -382,14 +380,14 @@ int opt,helloflag=0;
 while ((opt = getopt(argc, argv, "p:ic:hek:f")) != -1) {
   switch (opt) {
    case 'h': 
-     printf("\nИнтерактивная оболочка для ввода команд в загрузчик\n\n\
-Допустимы следующие ключи:\n\n\
--p <tty>       - указывает имя устройства последовательного порта для общения с загрузчиком\n\
--i             - запускает процедуру HELLO для инициализации загрузчика\n\
--e             - запрещает передачу префикса 7E перед командой\n\
--f             - отключает HDLC-форматирование командных пакетов\n\
--k #           - код чипсета (-kl - получить список кодов)\n\
--c \"<команда>\" - запускает указанную команду и завершает работу\n");
+     printf("\nInteractive shell for entering commands into the bootloader\n\n\
+The following keys are valid:\n\n\
+-p <tty> - specifies the name of the serial port device to communicate with the bootloader\n\
+-i - runs the HELLO procedure to initialize the bootloader\n\
+-e - disables passing the 7E prefix before the command\n\
+-f - disables HDLC formatting of command packets\n\
+-k # - chipset code (-kl - get a list of codes)\n\
+-c \"<command>\" - runs the specified command and exits\n");
     return;
      
    case 'p':
@@ -425,31 +423,31 @@ while ((opt = getopt(argc, argv, "p:ic:hek:f")) != -1) {
 #ifdef WIN32
 if (*devname == '\0')
 {
-   printf("\n - Последовательный порт не задан\n"); 
+   printf("\n - Serial port not specified\n"); 
    return; 
 }
 #endif
 
 if (!open_port(devname))  {
 #ifndef WIN32
-   printf("\n - Последовательный порт %s не открывается\n", devname); 
+   printf("\n - Serial port %s does not open\n", devname); 
 #else
-   printf("\n - Последовательный порт COM%s не открывается\n", devname); 
+   printf("\n - Serial port COM%s does not open\n", devname); 
 #endif
    return; 
 }
 if (helloflag) hello(1);
 printf("\n");
 
-// запуск команды из ключа -C, если есть
+//run the command from the -C switch, if available
 if (strlen(scmdline) != 0) {
   process_command(scmdline);
   return;
 }
  
-// Основной цикл обработки команд
+//Main command loop
 #ifndef WIN32
- // загрузка истории команд
+ //loading command history
  read_history("qcommand.history");
  write_history("qcommand.history");
 #endif 
@@ -465,10 +463,10 @@ for(;;)  {
     printf("\n");
     return;
  }   
- if (strlen(line) <1) continue; // слишком короткая команда
+ if (strlen(line) <1) continue; //command too short
 #ifndef WIN32
  if (strcmp(line,oldcmdline) != 0) {
-   add_history(line); // в буфер ее для истории
+   add_history(line); //buffer it for history
    append_history(1,"qcommand.history");
    strcpy(oldcmdline,line);
  }  

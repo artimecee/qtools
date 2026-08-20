@@ -1,11 +1,11 @@
 //---------------------------------------------------
-// Утилита для работы с дефектными блоками flash
+//Utility for working with defective flash blocks
 //---------------------------------------------------
 
 #include "include.h"
 
 //*********************************
-//* Построение списка бедблоков
+//* Building a list of bedblocks
 //*********************************
 void defect_list(int start, int len) {
   
@@ -16,27 +16,27 @@ int pn;
 
 out=fopen("badblock.lst","w");
 if (out == 0) {
-  printf("\n Невозможно создать файл badblock.lst\n");
+  printf("\nCannot create file badblock.lst\n");
   return;
 }
-fprintf(out,"Список дефектных блоков");
+fprintf(out,"List of defective blocks");
 
-// загружаем таблицу разделов с флешки
+//loading the partition table from a flash drive
 load_ptable("@");
 
-printf("\nПостроение списка дефектных блоков в интервале %08x - %08x\n",start,start+len);
+printf("\nBuilding a list of defective blocks in the interval %08x - %08x\n",start,start+len);
 
-// главный цикл по блокам
+//main loop in blocks
 for(blk=start;blk<(start+len);blk++) {
- printf("\r Проверка блока %08x",blk); fflush(stdout);
+ printf("\r Checking block %08x",blk); fflush(stdout);
  if (check_block(blk)) {
      printf(" - badblock");
      fprintf(out,"\n%08x",blk);
-     // увеличиваем счетчик бедблоков
+     //increase the bedblock counter
      badcount++;
-     // выводим имя раздела с этим блоком
+     //display the name of the section with this block
      if (validpart) {
-       // поиск раздела, в котором лежит этот блок
+       //search for the section in which this block lies
        pn=block_to_part(blk);
        if (pn != -1) {
          printf(" (%s+%x)",part_name(pn),blk-part_start(pn));
@@ -48,15 +48,15 @@ for(blk=start;blk<(start+len);blk++) {
 }     // blk
 fprintf(out,"\n");
 fclose (out);
-printf("\r * Всего дефектных блоков: %i\n",badcount);
+printf("\r * Total defective blocks: %i\n",badcount);
 }
  
 
 //********************************************************8 
-//* Сканирование на ошибки ECC
-//* flag=0 - все ошибки, 1 - только корректируемые
+//* Scan for ECC errors
+//* flag=0 - all errors, 1 - only correctable ones
 //********************************************************8 
-void ecc_scan(start,len,flag) {
+void ecc_scan(int start, int len, int flag) {
   
 int blk;
 int errcount=0;
@@ -64,21 +64,21 @@ int pg,sec;
 int stat;
 FILE* out; 
 
-printf("\nПостроение списка ошибок ЕСС в интервале %08x - %08x\n",start,start+len);
+printf("\nBuilding a list of ECC errors in the interval %08x - %08x\n",start,start+len);
 
 out=fopen("eccerrors.lst","w");
-fprintf(out,"Список ошибок ЕСС");
+fprintf(out,"List of ECC errors");
 if (out == 0) {
-  printf("\n Невозможно создать файл eccerrors.lst\n");
+  printf("\nCannot create file eccerrors.lst\n");
   return;
 }
 
-// включаем ЕСС
+//turn on ECC
 mempoke(nand_ecc_cfg,mempeek(nand_ecc_cfg)&0xfffffffe); 
 mempoke(nand_cfg1,mempeek(nand_cfg1)&0xfffffffe); 
 
 for(blk=start;blk<(start+len);blk++) {
- printf("\r Проверка блока %08x",blk); fflush(stdout);
+ printf("\r Checking block %08x",blk); fflush(stdout);
  if (check_block(blk)) {
      printf(" - badblock\n");
      continue;
@@ -86,7 +86,7 @@ for(blk=start;blk<(start+len);blk++) {
  bch_reset(); 
  for (pg=0;pg<ppb;pg++) {
    setaddr(blk,pg);
-   mempoke(nand_cmd,0x34); // чтение data
+   mempoke(nand_cmd,0x34); //reading data
    for (sec=0;sec<spp;sec++) {
     mempoke(nand_exec,0x1);
     nandwait();
@@ -94,18 +94,18 @@ for(blk=start;blk<(start+len);blk++) {
     if (stat == 0) continue;
     if ((stat == -1) && (flag == 1)) continue;
     if (stat == -1) { 
-      printf("\r!  Блок %x  Страница %d  сектор %d: некорректируемая ошибка чтения\n",blk,pg,sec);
-      fprintf(out,"\r!  Блок %x  Страница %d  сектор %d: некорректируемая ошибка чтения\n",blk,pg,sec);
+      printf("\r!  Block %x Page %d sector %d: uncorrectable read error\n",blk,pg,sec);
+      fprintf(out,"\r!  Block %x Page %d sector %d: uncorrectable read error\n",blk,pg,sec);
     }  
     else {
-      printf("\r!  Блок %x  Страница %d  сектор %d: скорректировано бит: %d\n",blk,pg,sec,stat);
-      fprintf(out,"\r!  Блок %x  Страница %d  сектор %d: скорректировано бит: %d\n",blk,pg,sec,stat);
+      printf("\r!  Block %x Page %d sector %d: bit adjusted: %d\n",blk,pg,sec,stat);
+      fprintf(out,"\r!  Block %x Page %d sector %d: bit adjusted: %d\n",blk,pg,sec,stat);
     }  
     errcount++;
    }
  }
 } 
-printf("\r * Всего ошибок: %i\n",errcount);
+printf("\r * Total errors: %i\n",errcount);
 }
  
 
@@ -127,18 +127,17 @@ char devname[50]="";
 while ((opt = getopt(argc, argv, "hp:b:l:dm:k:u:s:e:")) != -1) {
   switch (opt) {
    case 'h': 
-     printf("\n Утилита для работы с дефектными блоками flash-накопителя\n\
- Допустимы следующие ключи:\n\n\
--p <tty> - последовательный порт для общения с загрузчиком\n\
--k # - код чипсета (-kl - получить список кодов)\n\
--b <blk> - начальный номер читаемого блока (по умолчанию 0)\n\
--l <num> - число читаемых блоков, 0 - до конца флешки\n\n\
--d - вывести список имеющихся дефектных блоков\n\
--e# - вывести список ошибок ЕСС, #=0 - все ошибки, 1 - только корректируемые\n\
--m blk - пометить блок blk как дефектный\n\
--u blk - снять с блока blk признак дефектности\n\
--s L### - перманентно установить позицию маркера на байт ###, L=U(user) или S(spare)\n\
-");
+     printf("\nUtility for working with defective flash drive blocks\n\
+ The following keys are valid:\n\n\
+-p <tty> - serial port for communicating with the bootloader\n\
+-k # - chipset code (-kl - get a list of codes)\n\
+-b <blk> - starting number of the block to be read (default 0)\n\
+-l <num> - number of readable blocks, 0 - until the end of the flash drive\n\n\
+-d - display a list of existing defective blocks\n\
+-e# - display a list of ECC errors, #=0 - all errors, 1 - only correctable ones\n\
+-m blk - mark blk block as defective\n\
+-u blk - remove the sign of defects from the blk block\n\
+-s L### - permanently set the marker position to byte ###, L=U(user) or S(spare)\n\");
     return;
 
    case 'k':
@@ -176,7 +175,7 @@ while ((opt = getopt(argc, argv, "hp:b:l:dm:k:u:s:e:")) != -1) {
    case 'e':
      sscanf(optarg,"%i",&eflag);
      if ((eflag != 0) && (eflag != 1)) {
-       printf("\n Неправильное значение ключа -e\n");
+       printf("\nInvalid key value -e\n");
        return;
      }  
      break;
@@ -187,14 +186,14 @@ while ((opt = getopt(argc, argv, "hp:b:l:dm:k:u:s:e:")) != -1) {
   }
 }  
 if ((eflag != -1) && (dflag != 0)) {
-  printf("\n Ключи -e и -d несовместимы\n");
+  printf("\nThe -e and -d switches are incompatible\n");
   return;
 }  
 
 #ifdef WIN32
 if (*devname == '\0')
 {
-   printf("\n - Последовательный порт не задан\n"); 
+   printf("\n - Serial port not specified\n"); 
    return; 
 }
 #endif
@@ -202,61 +201,61 @@ if (*devname == '\0')
 
 if (!open_port(devname))  {
 #ifndef WIN32
-   printf("\n - Последовательный порт %s не открывается\n", devname); 
+   printf("\n - Serial port %s does not open\n", devname); 
 #else
-   printf("\n - Последовательный порт COM%s не открывается\n", devname); 
+   printf("\n - Serial port COM%s does not open\n", devname); 
 #endif
    return; 
 }
 
 hello(0);
 
-// Сброс всех операций контроллера
+//Reset all controller operations
 mempoke(nand_cmd,1); 
 mempoke(nand_exec,0x1);
 nandwait();
 
-// установка позиции маркера бедблока
+//setting the position of the bedblock marker
 if (sflag) set_badmark_pos (sflag, badloc);
 
 //###################################################
-// Режим списка дефектных блоков:
+//Defective block list mode:
 //###################################################
 
 if (dflag) {
-  if (len == 0) len=maxblock-start; //  до конца флешки
+  if (len == 0) len=maxblock-start; //to the end of the flash drive
   defect_list(start,len);
   return;
 }  
 
 //###################################################
-//#  Режим построения списка ошибок ЕСС
+//# Mode for building a list of ECC errors
 //###################################################
 if (eflag != -1) {
-  if (len == 0) len=maxblock-start; //  до конца флешки
+  if (len == 0) len=maxblock-start; //to the end of the flash drive
   ecc_scan(start,len,eflag);
   return;
 }  
 
 //###################################################
-//# Пометка блока как дефектного
+//# Mark a block as defective
 //###################################################
 if (mflag) {
   if (mark_bad(mflag)) {
-   printf("\n Блок %x отмечен как дефектный\n",mflag);
+   printf("\n Block %x is marked as defective\n",mflag);
   }
-  else printf("\n Блок %x уже является дефектным\n",mflag);	
+  else printf("\n Block %x is already defective\n",mflag);	
   return;
 }
 
 //###################################################
-//# Снятие с блока дефектного маркера
+//# Removing a defective marker from the block
 //###################################################
 if (uflag) {
   if (unmark_bad(uflag)) {
-     printf("\n Маркер блока %x удален\n",uflag);
+     printf("\nBlock marker %x deleted\n",uflag);
   }
-  else printf("\n Блок %x не является дефектным\n",uflag);
+  else printf("\n Block %x is not defective\n",uflag);
   return;
 }
 }

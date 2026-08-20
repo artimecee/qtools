@@ -1,4 +1,4 @@
-// Атрибуты типов файлов, поддерживаемых EFS
+//Attributes of file types supported by EFS
 #undef S_IFIFO 
 #undef S_IFCHR 
 #undef S_IFDIR 
@@ -21,7 +21,7 @@
 
 
 //
-//  Коды диагностических EFS-команд
+//EFS diagnostic command codes
 //
 #define EFS2_DIAG_HELLO     0 /* Parameter negotiation packet               */
 #define EFS2_DIAG_QUERY     1 /* Send information about EFS2 params         */
@@ -81,7 +81,7 @@
 #define EFS2_DIAG_FILESYSTEM_IMAGE_READ 55 /* Read File System Image.        */
 #define EFS2_DIAG_FILESYSTEM_IMAGE_CLOSE 56 /* Close File System Image.      */
 
-// Структура описания файла
+//File description structure
 
 struct efs_filestat {
   int32 diag_errno;        /* Error code if error, 0 otherwise             */
@@ -94,7 +94,7 @@ struct efs_filestat {
 };
 
 
-// элемент описания каталога
+//directory description element
 
 PACKED_ON(efs_dirent) {
   uint32 dirp;             /* Directory pointer.                           */
