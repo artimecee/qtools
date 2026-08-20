@@ -26,7 +26,8 @@ The following keys are valid:\n\n\
 -s nnn - set the size of the spare field per sector\n\
 -u nnn - set the size of the sector data field\n\
 -e nnn - set the ECC field size per sector\n\
--d [L]xxx- set the bad block marker to byte xxx (hex), L=U(user) or S(spare)\n\");
+-d [L]xxx- set the bad block marker to byte xxx (hex), L=U(user) or S(spare)\n\
+");
     return;
      
    case 'p':
