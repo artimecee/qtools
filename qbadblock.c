@@ -137,7 +137,8 @@ while ((opt = getopt(argc, argv, "hp:b:l:dm:k:u:s:e:")) != -1) {
 -e# - display a list of ECC errors, #=0 - all errors, 1 - only correctable ones\n\
 -m blk - mark blk block as defective\n\
 -u blk - remove the sign of defects from the blk block\n\
--s L### - permanently set the marker position to byte ###, L=U(user) or S(spare)\n\");
+-s L### - permanently set the marker position to byte ###, L=U(user) or S(spare)\n\
+");
     return;
 
    case 'k':
